@@ -44,16 +44,16 @@ modded class MissionBase
 		
 		CloseFindFile(find_handle);
 		
-		Print(files.Count());
 		
 		foreach (string file: files) {
 			Print("File found: " + file);
-			
 			EditorWorldDataImport data_import;
 			JsonFileLoader<EditorWorldDataImport>.JsonLoadFile("$profile:/EditorFiles/" + file, data_import);
 			
-			Print("Loading $profile:/EditorFiles/" + file);
-			CreateData(data_import);
+			if (data_import) {
+				Print("Loading $profile:/EditorFiles/" + file);
+				CreateData(data_import);
+			}
 		}
 
 	}
@@ -61,7 +61,20 @@ modded class MissionBase
 	private static void CreateData(EditorWorldDataImport editor_data)
 	{
 		foreach (EditorObjectDataImport data_import: editor_data.EditorObjects) {
-			Print(data_import);
+			Print("Spawning " + data_import.Type);
+			EditorSpawnObject(data_import.Type, data_import.Position, data_import.Orientation);
 		}
+	}
+	
+	private static void EditorSpawnObject(string type, vector position, vector orientation)
+	{
+	    auto obj = GetGame().CreateObjectEx(type, position, ECE_SETUP | ECE_UPDATEPATHGRAPH | ECE_CREATEPHYSICS);
+	    obj.SetPosition(position);
+	    obj.SetOrientation(orientation);
+	    obj.SetOrientation(obj.GetOrientation());
+	    obj.SetFlags(EntityFlags.STATIC, false);
+	    obj.Update();
+		obj.SetAffectPathgraph(true, false);
+		if (obj.CanAffectPathgraph()) GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(GetGame().UpdatePathgraphRegionByObject, 100, false, obj);
 	}
 }
