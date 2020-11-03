@@ -23,6 +23,8 @@ modded class MissionBase
 	{
 		super.InitialiseWorldData();
 		
+		if (!GetGame().IsServer()) return;
+		
 		if (!FileExist("$profile:/EditorFiles")) {
 			Print("EditorFiles directory not found, creating...");
 			if (!MakeDirectory("$profile:/EditorFiles")) {
