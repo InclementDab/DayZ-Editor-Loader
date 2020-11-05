@@ -2,7 +2,7 @@ class EditorLoaderModule: JMModuleBase
 {
 	static ref map<int, Object> WorldObjects = new map<int, Object>();
 	protected ref array<ref EditorWorldDataImport> m_WorldDataImports = {};
-
+	
 	override void OnMissionStart()
 	{
 		GetRPCManager().AddRPC("EditorLoaderModule", "EditorLoaderRemoteCreateData", this);
