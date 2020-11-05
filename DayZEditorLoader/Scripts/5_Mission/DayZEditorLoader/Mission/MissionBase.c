@@ -63,7 +63,6 @@ modded class MissionBase
 	private static void CreateData(EditorWorldDataImport editor_data)
 	{
 		foreach (EditorObjectDataImport data_import: editor_data.EditorObjects) {
-			Print("Spawning " + data_import.Type);
 			EditorSpawnObject(data_import.Type, data_import.Position, data_import.Orientation);
 		}
 	}
