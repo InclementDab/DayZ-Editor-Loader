@@ -103,16 +103,12 @@ class EditorLoaderModule: JMModuleBase
 	}
 	
 	static void EditorLoaderRemoteCreateData(CallType type, ref ParamsReadContext ctx, ref PlayerIdentity sender, ref Object target)
-	{
-		Print("REEEEEEEEEEEEEEEEEEEEEEEEEEE");
-		
+	{		
+		EditorLoaderLog("EditorLoaderRemoteCreateData");
 		Param1<ref EditorWorldDataImport> data_import;
 		if (!ctx.Read(data_import)) {
-			Print("shit dont work");
 			return;
 		}
-		
-		Print("Oh shit whaddup");
 		
 		EditorLoaderCreateData(data_import.param1);
 	}
@@ -134,14 +130,25 @@ class EditorLoaderModule: JMModuleBase
 	static void EditorLoaderSpawnObject(string type, vector position, vector orientation)
 	{
 		EditorLoaderLog(string.Format("Creating %1", type));
-	    auto obj = GetGame().CreateObjectEx(type, position, ECE_SETUP | ECE_UPDATEPATHGRAPH | ECE_CREATEPHYSICS);
+		if (GetGame().IsKindOf(type, "Man") || GetGame().IsKindOf(type, "DZ_LightAI")) {
+			return;
+		}
+		
+	    Object obj = GetGame().CreateObjectEx(type, position, ECE_SETUP | ECE_UPDATEPATHGRAPH | ECE_CREATEPHYSICS);
+		
+		if (!obj) {
+			return;
+		}
+		
 	    obj.SetPosition(position);
 	    obj.SetOrientation(orientation);
 	    obj.SetOrientation(obj.GetOrientation());
 	    obj.SetFlags(EntityFlags.STATIC, false);
 	    obj.Update();
 		obj.SetAffectPathgraph(true, false);
-		if (obj.CanAffectPathgraph()) GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(GetGame().UpdatePathgraphRegionByObject, 100, false, obj);
+		if (obj.CanAffectPathgraph()) { 
+			GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(GetGame().UpdatePathgraphRegionByObject, 100, false, obj);
+		}
 	}
 
 	static void EditorLoaderDeleteObject(Object obj)
