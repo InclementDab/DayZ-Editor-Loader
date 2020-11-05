@@ -35,6 +35,7 @@ GameProjectClass {
 					Name "core"
 					Paths {
 						"scripts/1_Core"
+						"JM/CF/scripts/1_Core"
 						"DayZEditorLoader/scripts/1_Core"
 					}
 					EntryPoint ""
@@ -50,6 +51,7 @@ GameProjectClass {
 					Name "game"
 					Paths {
 						"scripts/3_Game"
+						"JM/CF/scripts/3_Game"
 						"DayZEditorLoader/Scripts/3_Game"
 					}
 					EntryPoint "CreateGame"
@@ -58,6 +60,7 @@ GameProjectClass {
 					Name "world"
 					Paths {
 						"scripts/4_World"
+						"JM/CF/scripts/4_World"
 						"DayZEditorLoader/scripts/4_World"
 					}
 					EntryPoint ""
@@ -66,6 +69,7 @@ GameProjectClass {
 					Name "mission"
 					Paths {
 						"scripts/5_Mission"
+						"JM/CF/scripts/5_Mission"
 						"DayZEditorLoader/scripts/5_Mission"
 					}
 					EntryPoint "CreateMission"
