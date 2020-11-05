@@ -1,3 +1,12 @@
+modded class JMModuleConstructor
+{
+	override void RegisterModules(out TTypenameArray modules)
+	{
+		super.RegisterModules(modules);
+		modules.Insert(EditorLoaderModule);
+	}
+}
+
 class EditorObjectDataImport
 {
 	int m_Id;
@@ -17,14 +26,12 @@ class EditorWorldDataImport
 	ref array<int> DeletedObjects = {};
 }
 
-modded class MissionBase
+class EditorLoaderModule: JMModuleBase
 {
 	protected ref map<int, Object> m_WorldObjects = new map<int, Object>();
 
-	override void InitialiseWorldData()
-	{
-		super.InitialiseWorldData();
-		
+	override void OnMissionStart()
+	{		
 		if (!GetGame().IsServer()) return;
 		
 		if (!FileExist("$profile:/EditorFiles")) {
