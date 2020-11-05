@@ -19,6 +19,8 @@ class EditorWorldDataImport
 
 modded class MissionBase
 {
+	protected ref map<int, Object> m_WorldObjects = new map<int, Object>();
+
 	override void InitialiseWorldData()
 	{
 		super.InitialiseWorldData();
@@ -46,7 +48,16 @@ modded class MissionBase
 		
 		CloseFindFile(find_handle);
 		
-		
+
+		// Adds all map objects to the m_WorldObjects array
+		ref array<Object> objects = {};
+		ref array<CargoBase> cargos = {};
+		GetGame().GetObjectsAtPosition(Vector(7500, 0, 7500), 20000, objects, cargos);
+
+		foreach (Object o: objects) {
+			m_WorldObjects.Insert(o.GetID(), o);
+		}
+
 		foreach (string file: files) {
 			Print("File found: " + file);
 			EditorWorldDataImport data_import;
@@ -65,6 +76,10 @@ modded class MissionBase
 		foreach (EditorObjectDataImport data_import: editor_data.EditorObjects) {
 			EditorSpawnObject(data_import.Type, data_import.Position, data_import.Orientation);
 		}
+
+		foreach (int deleted_object: editor_data.DeletedObjects) {
+			EditorDeleteObject(m_WorldObjects[deleted_object]);
+		}
 	}
 	
 	private static void EditorSpawnObject(string type, vector position, vector orientation)
@@ -77,5 +92,10 @@ modded class MissionBase
 	    obj.Update();
 		obj.SetAffectPathgraph(true, false);
 		if (obj.CanAffectPathgraph()) GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(GetGame().UpdatePathgraphRegionByObject, 100, false, obj);
+	}
+
+	private static void EditorDeleteObject(Object obj)
+	{
+		
 	}
 }
