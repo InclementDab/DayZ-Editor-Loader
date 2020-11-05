@@ -6,6 +6,20 @@ modded class JMModuleConstructor
 		modules.Insert(EditorLoaderModule);
 	}
 }
+/*
+modded class ModStructure
+{
+	override bool OnLoad(string modName)
+	{
+		if (modName != "DZ_Editor_Loader")
+			return super.OnLoad(modName);
+
+		//! Set the storage version for this mod
+		SetStorageVersion(1);
+
+		return true;
+	}
+}*/
 
 class EditorObjectDataImport
 {
@@ -28,11 +42,12 @@ class EditorWorldDataImport
 
 class EditorLoaderModule: JMModuleBase
 {
-	protected ref map<int, Object> m_WorldObjects = new map<int, Object>();
+	static ref map<int, Object> WorldObjects = new map<int, Object>();
+	protected ref array<ref EditorWorldDataImport> m_WorldDataImports = {};
 
 	override void OnMissionStart()
-	{		
-		if (!GetGame().IsServer()) return;
+	{
+		GetRPCManager().AddRPC("EditorLoaderModule", "EditorLoaderRemoteCreateData", this);
 		
 		if (!FileExist("$profile:/EditorFiles")) {
 			EditorLoaderLog("EditorFiles directory not found, creating...");
@@ -44,15 +59,19 @@ class EditorLoaderModule: JMModuleBase
 		
 		EditorLoaderLog("Loading World Objects into cache...");
 		
-		// Adds all map objects to the m_WorldObjects array
+		// Adds all map objects to the WorldObjects array
 		ref array<Object> objects = {};
 		ref array<CargoBase> cargos = {};
 		GetGame().GetObjectsAtPosition(Vector(7500, 0, 7500), 20000, objects, cargos);
 		
-		EditorLoaderLog(string.Format("Loaded %1 World Objects into cache", m_WorldObjects.Count()));
 		foreach (Object o: objects) {
-			m_WorldObjects.Insert(o.GetID(), o);
+			WorldObjects.Insert(o.GetID(), o);
 		}
+		
+		EditorLoaderLog(string.Format("Loaded %1 World Objects into cache", WorldObjects.Count()));
+		
+		// Everything below this line is the Server side syncronization :)
+		if (!IsMissionHost()) return;
 		
 		TStringArray files = {};
 		string file_name;
@@ -73,15 +92,34 @@ class EditorLoaderModule: JMModuleBase
 			JsonFileLoader<EditorWorldDataImport>.JsonLoadFile("$profile:/EditorFiles/" + file, data_import);
 			
 			if (data_import) {
-				EditorLoaderLog("Loading $profile:/EditorFiles/" + file);
-				EditorLoaderCreateData(data_import);
+				m_WorldDataImports.Insert(data_import);
+				EditorLoaderLog("Loaded $profile:/EditorFiles/" + file);
 			}
 		}
-
+		
+		foreach (EditorWorldDataImport data: m_WorldDataImports) {
+			EditorLoaderCreateData(data);
+		}
 	}
 	
-	private void EditorLoaderCreateData(EditorWorldDataImport editor_data)
+	static void EditorLoaderRemoteCreateData(CallType type, ref ParamsReadContext ctx, ref PlayerIdentity sender, ref Object target)
 	{
+		Print("REEEEEEEEEEEEEEEEEEEEEEEEEEE");
+		
+		Param1<ref EditorWorldDataImport> data_import;
+		if (!ctx.Read(data_import)) {
+			Print("shit dont work");
+			return;
+		}
+		
+		Print("Oh shit whaddup");
+		
+		EditorLoaderCreateData(data_import.param1);
+	}
+	
+	static void EditorLoaderCreateData(EditorWorldDataImport editor_data)
+	{
+		EditorLoaderLog("EditorLoaderCreateData");
 		EditorLoaderLog(string.Format("%1 created objects found", editor_data.EditorObjects.Count()));
 		EditorLoaderLog(string.Format("%1 deleted objects found", editor_data.DeletedObjects.Count()));
 		foreach (EditorObjectDataImport data_import: editor_data.EditorObjects) {
@@ -89,11 +127,11 @@ class EditorLoaderModule: JMModuleBase
 		}
 
 		foreach (int deleted_object: editor_data.DeletedObjects) {
-			EditorLoaderDeleteObject(m_WorldObjects[deleted_object]);
+			EditorLoaderDeleteObject(EditorLoaderModule.WorldObjects[deleted_object]);
 		}
 	}
 	
-	private static void EditorLoaderSpawnObject(string type, vector position, vector orientation)
+	static void EditorLoaderSpawnObject(string type, vector position, vector orientation)
 	{
 		EditorLoaderLog(string.Format("Creating %1", type));
 	    auto obj = GetGame().CreateObjectEx(type, position, ECE_SETUP | ECE_UPDATEPATHGRAPH | ECE_CREATEPHYSICS);
@@ -106,10 +144,28 @@ class EditorLoaderModule: JMModuleBase
 		if (obj.CanAffectPathgraph()) GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(GetGame().UpdatePathgraphRegionByObject, 100, false, obj);
 	}
 
-	private static void EditorLoaderDeleteObject(Object obj)
+	static void EditorLoaderDeleteObject(Object obj)
 	{
 		EditorLoaderLog(string.Format("Deleting %1", obj));
 		CF__ObjectManager.RemoveObject(obj);
+	}
+	
+	override void OnClientReady(PlayerBase player, PlayerIdentity identity)
+	{
+		EditorLoaderLog("OnClientReady");
+		foreach (EditorWorldDataImport data: m_WorldDataImports) {
+			GetRPCManager().SendRPC("EditorLoaderModule", "EditorLoaderRemoteCreateData", new Param1<ref EditorWorldDataImport>(data), true, identity);
+		}
+	}
+	
+	override bool IsClient() 
+	{
+		return true;
+	}
+	
+	override bool IsServer()
+	{
+		return true;
 	}
 	
 	static void EditorLoaderLog(string msg)
