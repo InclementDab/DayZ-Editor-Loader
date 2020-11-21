@@ -7,14 +7,7 @@ class EditorLoaderModule: JMModuleBase
 	{
 		GetRPCManager().AddRPC("EditorLoaderModule", "EditorLoaderRemoteCreateData", this);
 		
-		if (!FileExist("$profile:/EditorFiles")) {
-			EditorLoaderLog("EditorFiles directory not found, creating...");
-			if (!MakeDirectory("$profile:/EditorFiles")) {
-				EditorLoaderLog("Could not create EditorFiles directory. Exiting...");
-				return;
-			}
-		}
-		
+
 		EditorLoaderLog("Loading World Objects into cache...");
 		
 		// Adds all map objects to the WorldObjects array
@@ -31,6 +24,15 @@ class EditorLoaderModule: JMModuleBase
 		// Everything below this line is the Server side syncronization :)
 		if (!IsMissionHost()) return;
 		
+
+		if (!FileExist("$profile:/EditorFiles")) {
+			EditorLoaderLog("EditorFiles directory not found, creating...");
+			if (!MakeDirectory("$profile:/EditorFiles")) {
+				EditorLoaderLog("Could not create EditorFiles directory. Exiting...");
+				return;
+			}
+		}
+
 		TStringArray files = {};
 		string file_name;
 		FileAttr file_attr;
@@ -59,6 +61,7 @@ class EditorLoaderModule: JMModuleBase
 			EditorLoaderCreateData(data);
 		}
 	}
+	
 	
 	static void EditorLoaderRemoteCreateData(CallType type, ref ParamsReadContext ctx, ref PlayerIdentity sender, ref Object target)
 	{		
@@ -112,7 +115,7 @@ class EditorLoaderModule: JMModuleBase
 	static void EditorLoaderDeleteObject(Object obj)
 	{
 		EditorLoaderLog(string.Format("Deleting %1", obj));
-		CF__ObjectManager.RemoveObject(obj);
+		CF_ObjectManager.HideMapObject(obj);
 	}
 	
 	override void OnClientReady(PlayerBase player, PlayerIdentity identity)
