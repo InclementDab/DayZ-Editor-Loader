@@ -2,14 +2,12 @@ class EditorLoaderModule: JMModuleBase
 {
 	static bool ExportLootData = false;
 	
-	static ref map<int, Object> WorldObjects = new map<int, Object>();
+	static ref map<int, Object> WorldObjects;
 	protected ref array<ref EditorWorldDataImport> m_WorldDataImports = {};
 	
-	override void OnMissionStart()
+	static void LoadWorldObjects()
 	{
-		GetRPCManager().AddRPC("EditorLoaderModule", "EditorLoaderRemoteCreateData", this);
-		
-
+		WorldObjects = new map<int, Object>();
 		EditorLoaderLog("Loading World Objects into cache...");
 		
 		// Adds all map objects to the WorldObjects array
@@ -20,7 +18,17 @@ class EditorLoaderModule: JMModuleBase
 		foreach (Object o: objects) {
 			WorldObjects.Insert(o.GetID(), o);
 		}
+	}
+	
+	override void OnMissionStart()
+	{
+		GetRPCManager().AddRPC("EditorLoaderModule", "EditorLoaderRemoteCreateData", this);
 		
+		if (!WorldObjects) {
+			LoadWorldObjects();
+		}
+
+
 		EditorLoaderLog(string.Format("Loaded %1 World Objects into cache", WorldObjects.Count()));
 		
 		// Everything below this line is the Server side syncronization :)
@@ -93,6 +101,11 @@ class EditorLoaderModule: JMModuleBase
 	static void EditorLoaderCreateData(EditorWorldDataImport editor_data)
 	{
 		EditorLoaderLog("EditorLoaderCreateData");
+		
+		if (!WorldObjects) {
+			LoadWorldObjects();
+		}
+		
 		EditorLoaderLog(string.Format("%1 created objects found", editor_data.EditorObjects.Count()));
 		EditorLoaderLog(string.Format("%1 deleted objects found", editor_data.DeletedObjects.Count()));
 		foreach (EditorObjectDataImport data_import: editor_data.EditorObjects) {
