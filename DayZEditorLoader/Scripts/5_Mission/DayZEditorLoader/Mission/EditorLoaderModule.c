@@ -1,5 +1,7 @@
 class EditorLoaderModule: JMModuleBase
 {
+	static bool ExportLootData = false;
+	
 	static ref map<int, Object> WorldObjects = new map<int, Object>();
 	protected ref array<ref EditorWorldDataImport> m_WorldDataImports = {};
 	
@@ -60,8 +62,22 @@ class EditorLoaderModule: JMModuleBase
 		foreach (EditorWorldDataImport data: m_WorldDataImports) {
 			EditorLoaderCreateData(data);
 		}
+		
+		thread ExportLootData();
 	}
 	
+	void ExportLootData()
+	{
+		while (true) {
+			
+			if (GetCEApi() && ExportLootData) {
+				GetCEApi().ExportProxyData(vector.Zero, 100000);
+				return;
+			}
+			
+			Sleep(1000);
+		}
+	}
 	
 	static void EditorLoaderRemoteCreateData(CallType type, ref ParamsReadContext ctx, ref PlayerIdentity sender, ref Object target)
 	{		
