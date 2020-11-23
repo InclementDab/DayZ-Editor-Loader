@@ -89,7 +89,6 @@ class EditorLoaderModule: JMModuleBase
 	void ExportLootData()
 	{
 		while (true) {
-			
 			if (GetCEApi() && ExportLootData) {
 				GetCEApi().ExportProxyData(vector.Zero, 100000);
 				return;
@@ -132,7 +131,9 @@ class EditorLoaderModule: JMModuleBase
 		EditorLoaderLog(string.Format("%1 deleted objects found", editor_data.DeletedObjects.Count()));
 		
 		foreach (int deleted_object: editor_data.DeletedObjects) {
-			EditorLoaderDeleteObject(EditorLoaderModule.WorldObjects[deleted_object].Ptr());
+			if (EditorLoaderModule.WorldObjects[deleted_object]) {
+				EditorLoaderDeleteObject(EditorLoaderModule.WorldObjects[deleted_object].Ptr());
+			}
 		}
 		
 		foreach (EditorObjectDataImport data_import: editor_data.EditorObjects) {
@@ -191,9 +192,6 @@ class EditorLoaderModule: JMModuleBase
 	
 	static void EditorLoaderLog(string msg)
 	{
-		// Only logging on serverside
-		if (GetGame().IsServer()) {
-			PrintFormat("[EditorLoader] %1", msg);
-		}
+		PrintFormat("[EditorLoader] %1", msg);
 	}
 }
