@@ -92,6 +92,7 @@ class EditorLoaderModule: JMModuleBase
 		EditorLoaderLog("EditorLoaderRemoteCreateData");
 		Param2<ref EditorWorldDataImport, bool> data_import;
 		if (!ctx.Read(data_import)) {
+			EditorLoaderLog("INVALID DATA ON READ");
 			return;
 		}
 		
