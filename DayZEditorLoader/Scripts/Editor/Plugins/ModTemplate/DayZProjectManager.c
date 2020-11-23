@@ -3,7 +3,7 @@
 class DayZProjectManager: DayZTool
 {
 	[Attribute("", "editbox")]
-	string ModName;
+	string ModName = "DayZEditorLoader";
 		
 	override void Run()
 	{

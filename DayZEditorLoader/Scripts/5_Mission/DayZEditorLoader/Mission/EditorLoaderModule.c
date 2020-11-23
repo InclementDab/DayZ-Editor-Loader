@@ -9,19 +9,18 @@ class EditorLoaderModule: JMModuleBase
 	{
 		WorldObjects = new map<int, ref OLinkT>();
 		EditorLoaderLog("Loading World Objects into cache...");
-		
-		// Preload all objects in the map
-		GetGame().PreloadObject("", 100000);
-		
+				
 		// Adds all map objects to the WorldObjects array
 		ref array<Object> objects = {};
 		ref array<CargoBase> cargos = {};
 		GetGame().GetObjectsAtPosition(vector.Zero, 100000, objects, cargos);
-		Print(objects.Count());
-		
+
 		foreach (Object o: objects) {
 			WorldObjects.Insert(o.GetID(), new OLinkT(o));
 		}
+		
+				
+		EditorLoaderLog(string.Format("Loaded %1 World Objects into cache", WorldObjects.Count()));
 	}
 	
 	// Known bug: Buildings will stay deleted after joining a server
@@ -30,7 +29,7 @@ class EditorLoaderModule: JMModuleBase
 	{
 		EditorLoaderLog("OnWorldCleanup");
 		CF.ObjectManager.UnhideAllMapObjects();
-		delete WorldObjects;
+		WorldObjects.Clear();
 	}
 	
 
@@ -38,13 +37,12 @@ class EditorLoaderModule: JMModuleBase
 	{
 		EditorLoaderLog("OnMissionStart");
 		GetRPCManager().AddRPC("EditorLoaderModule", "EditorLoaderRemoteCreateData", this);
-		
-		EditorLoaderLog(string.Format("Loaded %1 World Objects into cache", WorldObjects.Count()));
-		
-		// Everything below this line is the Server side syncronization :)
-		if (!IsMissionHost()) return;
+		GetRPCManager().AddRPC("EditorLoaderModule", "EditorLoaderRemoteComplete", this);
 		
 
+		// Everything below this line is the Server side syncronization :)
+		if (!IsMissionHost()) return;
+	
 		if (!FileExist("$profile:/EditorFiles")) {
 			EditorLoaderLog("EditorFiles directory not found, creating...");
 			if (!MakeDirectory("$profile:/EditorFiles")) {
@@ -80,6 +78,10 @@ class EditorLoaderModule: JMModuleBase
 		foreach (EditorWorldDataImport data: m_WorldDataImports) {
 			EditorLoaderCreateData(data);
 		}
+				
+		// Maybe having a massive map this big is hurting clients :)
+		// Server side only
+		WorldObjects.Clear();
 		
 		thread ExportLootData();
 	}
@@ -100,12 +102,22 @@ class EditorLoaderModule: JMModuleBase
 	static void EditorLoaderRemoteCreateData(CallType type, ref ParamsReadContext ctx, ref PlayerIdentity sender, ref Object target)
 	{		
 		EditorLoaderLog("EditorLoaderRemoteCreateData");
-		Param1<ref EditorWorldDataImport> data_import;
+		Param2<ref EditorWorldDataImport, bool> data_import;
 		if (!ctx.Read(data_import)) {
 			return;
 		}
 		
 		EditorLoaderCreateData(data_import.param1);
+		
+		// Signals that its the final file
+		if (data_import.param2) {
+			WorldObjects.Clear();
+		}
+	}
+	
+	static void EditorLoaderRemoteComplete(CallType type, ref ParamsReadContext ctx, ref PlayerIdentity sender, ref Object target)
+	{
+		EditorLoaderLog("EditorLoaderRemoteComplete");
 	}
 	
 	static void EditorLoaderCreateData(EditorWorldDataImport editor_data)
@@ -118,12 +130,13 @@ class EditorLoaderModule: JMModuleBase
 		
 		EditorLoaderLog(string.Format("%1 created objects found", editor_data.EditorObjects.Count()));
 		EditorLoaderLog(string.Format("%1 deleted objects found", editor_data.DeletedObjects.Count()));
-		foreach (EditorObjectDataImport data_import: editor_data.EditorObjects) {
-			EditorLoaderSpawnObject(data_import.Type, data_import.Position, data_import.Orientation);
-		}
-
+		
 		foreach (int deleted_object: editor_data.DeletedObjects) {
 			EditorLoaderDeleteObject(EditorLoaderModule.WorldObjects[deleted_object].Ptr());
+		}
+		
+		foreach (EditorObjectDataImport data_import: editor_data.EditorObjects) {
+			EditorLoaderSpawnObject(data_import.Type, data_import.Position, data_import.Orientation);
 		}
 	}
 	
@@ -160,8 +173,9 @@ class EditorLoaderModule: JMModuleBase
 	override void OnClientReady(PlayerBase player, PlayerIdentity identity)
 	{
 		EditorLoaderLog("OnClientReady");
-		foreach (EditorWorldDataImport data: m_WorldDataImports) {
-			GetRPCManager().SendRPC("EditorLoaderModule", "EditorLoaderRemoteCreateData", new Param1<ref EditorWorldDataImport>(data), true, identity);
+		
+		for (int i = 0; i < m_WorldDataImports.Count(); i++) {
+			GetRPCManager().SendRPC("EditorLoaderModule", "EditorLoaderRemoteCreateData", new Param2<ref EditorWorldDataImport, bool>(m_WorldDataImports[i], (i == m_WorldDataImports.Count() - 1)), true, identity);
 		}
 	}
 	
@@ -177,6 +191,9 @@ class EditorLoaderModule: JMModuleBase
 	
 	static void EditorLoaderLog(string msg)
 	{
-		PrintFormat("[EditorLoader] %1", msg);
+		// Only logging on serverside
+		if (GetGame().IsServer()) {
+			PrintFormat("[EditorLoader] %1", msg);
+		}
 	}
 }
