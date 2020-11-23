@@ -2,33 +2,43 @@ class EditorLoaderModule: JMModuleBase
 {
 	static bool ExportLootData = false;
 	
-	static ref map<int, Object> WorldObjects;
+	static ref map<int, ref OLinkT> WorldObjects;
 	protected ref array<ref EditorWorldDataImport> m_WorldDataImports = {};
 	
-	static void LoadWorldObjects()
+	static void LoadMapObjects()
 	{
-		WorldObjects = new map<int, Object>();
+		WorldObjects = new map<int, ref OLinkT>();
 		EditorLoaderLog("Loading World Objects into cache...");
+		
+		// Preload all objects in the map
+		GetGame().PreloadObject("", 100000);
 		
 		// Adds all map objects to the WorldObjects array
 		ref array<Object> objects = {};
 		ref array<CargoBase> cargos = {};
-		GetGame().GetObjectsAtPosition(Vector(7500, 0, 7500), 20000, objects, cargos);
+		GetGame().GetObjectsAtPosition(vector.Zero, 100000, objects, cargos);
+		Print(objects.Count());
 		
 		foreach (Object o: objects) {
-			WorldObjects.Insert(o.GetID(), o);
+			WorldObjects.Insert(o.GetID(), new OLinkT(o));
 		}
 	}
 	
+	// Known bug: Buildings will stay deleted after joining a server
+	// Find a way to undelete them
+	override void OnWorldCleanup()
+	{
+		EditorLoaderLog("OnWorldCleanup");
+		CF.ObjectManager.UnhideAllMapObjects();
+		delete WorldObjects;
+	}
+	
+
 	override void OnMissionStart()
 	{
+		EditorLoaderLog("OnMissionStart");
 		GetRPCManager().AddRPC("EditorLoaderModule", "EditorLoaderRemoteCreateData", this);
 		
-		if (!WorldObjects) {
-			LoadWorldObjects();
-		}
-
-
 		EditorLoaderLog(string.Format("Loaded %1 World Objects into cache", WorldObjects.Count()));
 		
 		// Everything below this line is the Server side syncronization :)
@@ -103,7 +113,7 @@ class EditorLoaderModule: JMModuleBase
 		EditorLoaderLog("EditorLoaderCreateData");
 		
 		if (!WorldObjects) {
-			LoadWorldObjects();
+			LoadMapObjects();
 		}
 		
 		EditorLoaderLog(string.Format("%1 created objects found", editor_data.EditorObjects.Count()));
@@ -113,7 +123,7 @@ class EditorLoaderModule: JMModuleBase
 		}
 
 		foreach (int deleted_object: editor_data.DeletedObjects) {
-			EditorLoaderDeleteObject(EditorLoaderModule.WorldObjects[deleted_object]);
+			EditorLoaderDeleteObject(EditorLoaderModule.WorldObjects[deleted_object].Ptr());
 		}
 	}
 	
