@@ -28,8 +28,8 @@ class EditorLoaderModule: JMModuleBase
 	override void OnWorldCleanup()
 	{
 		EditorLoaderLog("OnWorldCleanup");
-		CF.ObjectManager.UnhideAllMapObjects();
-		WorldObjects.Clear();
+		//CF.ObjectManager.UnhideAllMapObjects();
+		//WorldObjects.Clear();
 	}
 	
 
@@ -85,18 +85,7 @@ class EditorLoaderModule: JMModuleBase
 		
 		thread ExportLootData();
 	}
-	
-	void ExportLootData()
-	{
-		while (true) {
-			if (GetCEApi() && ExportLootData) {
-				GetCEApi().ExportProxyData(vector.Zero, 100000);
-				return;
-			}
-			
-			Sleep(1000);
-		}
-	}
+
 	
 	static void EditorLoaderRemoteCreateData(CallType type, ref ParamsReadContext ctx, ref PlayerIdentity sender, ref Object target)
 	{		
@@ -193,5 +182,18 @@ class EditorLoaderModule: JMModuleBase
 	static void EditorLoaderLog(string msg)
 	{
 		PrintFormat("[EditorLoader] %1", msg);
+	}
+	
+		
+	private void ExportLootData()
+	{
+		while (true) {
+			if (GetCEApi() && ExportLootData) {
+				GetCEApi().ExportProxyData(vector.Zero, 100000);
+				return;
+			}
+			
+			Sleep(1000);
+		}
 	}
 }
