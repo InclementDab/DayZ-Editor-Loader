@@ -25,19 +25,47 @@ class EditorLoaderModule: JMModuleBase
 	
 	// Known bug: Buildings will stay deleted after joining a server
 	// Find a way to undelete them
-	override void OnWorldCleanup()
+
+	
+	// cant send vectors over RPC :ANGERY:
+	void EditorLoaderCreateBuilding(string type, string position, string orientation)
 	{
-		EditorLoaderLog("OnWorldCleanup");
-		//CF.ObjectManager.UnhideAllMapObjects();
-		//WorldObjects.Clear();
+		EditorLoaderLog(string.Format("Creating %1", type));
+		if (GetGame().IsKindOf(type, "Man") || GetGame().IsKindOf(type, "DZ_LightAI")) {
+			return;
+		}
+		
+	    Object obj = GetGame().CreateObjectEx(type, position.ToVector(), ECE_SETUP | ECE_UPDATEPATHGRAPH | ECE_CREATEPHYSICS);
+		
+		if (!obj) {
+			return;
+		}
+		
+	    obj.SetOrientation(orientation.ToVector());
+	    obj.SetFlags(EntityFlags.STATIC, false);
+	    obj.Update();
+		obj.SetAffectPathgraph(true, false);
+		if (obj.CanAffectPathgraph()) { 
+			GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(GetGame().UpdatePathgraphRegionByObject, 100, false, obj);
+		}
 	}
 	
+	void EditorLoaderDeleteBuilding(int id)
+	{
+		if (!WorldObjects) {
+			LoadMapObjects();
+		}
+		
+		EditorLoaderLog(string.Format("Deleting %1", id));
+		CF_ObjectManager.HideMapObject(WorldObjects[id].Ptr());
+	}
 
 	override void OnMissionStart()
 	{
 		EditorLoaderLog("OnMissionStart");
-		GetRPCManager().AddRPC("EditorLoaderModule", "EditorLoaderRemoteCreateData", this);
-		GetRPCManager().AddRPC("EditorLoaderModule", "EditorLoaderRemoteComplete", this);
+		
+		GetRPCManager().AddRPC("EditorLoaderModule", "EditorLoaderCreateBuilding", this);
+		GetRPCManager().AddRPC("EditorLoaderModule", "EditorLoaderDeleteBuilding", this);
 		
 
 		// Everything below this line is the Server side syncronization :)
@@ -75,98 +103,47 @@ class EditorLoaderModule: JMModuleBase
 			}
 		}
 		
-		foreach (EditorWorldDataImport data: m_WorldDataImports) {
-			EditorLoaderCreateData(data);
+		
+		// Create and Delete buildings on Server Side
+		foreach (EditorWorldDataImport editor_data: m_WorldDataImports) {
+			
+			EditorLoaderLog(string.Format("%1 created objects found", editor_data.EditorObjects.Count()));
+			EditorLoaderLog(string.Format("%1 deleted objects found", editor_data.DeletedObjects.Count()));
+			
+			foreach (int deleted_object: editor_data.DeletedObjects) {
+				EditorLoaderDeleteBuilding(deleted_object);
+			}
+			
+			foreach (EditorObjectDataImport editor_object: editor_data.EditorObjects) {
+				EditorLoaderCreateBuilding(editor_object.Type, editor_object.Position.ToString(false), editor_object.Orientation.ToString(false));
+			}
 		}
 				
 		// Maybe having a massive map this big is hurting clients :)
 		// Server side only
-		WorldObjects.Clear();
+		if (WorldObjects) {
+			WorldObjects.Clear();	
+		}
 		
+		// Runs thread that watches for EditorLoaderModule.ExportLootData = true;
 		thread ExportLootData();
 	}
 
-	
-	static void EditorLoaderRemoteCreateData(CallType type, ref ParamsReadContext ctx, ref PlayerIdentity sender, ref Object target)
-	{		
-		EditorLoaderLog("EditorLoaderRemoteCreateData");
-		Param2<ref EditorWorldDataImport, bool> data_import;
-		if (!ctx.Read(data_import)) {
-			EditorLoaderLog("INVALID DATA ON READ");
-			return;
-		}
-		
-		EditorLoaderCreateData(data_import.param1);
-		
-		// Signals that its the final file
-		if (data_import.param2) {
-			WorldObjects.Clear();
-		}
-	}
-	
-	static void EditorLoaderRemoteComplete(CallType type, ref ParamsReadContext ctx, ref PlayerIdentity sender, ref Object target)
-	{
-		EditorLoaderLog("EditorLoaderRemoteComplete");
-	}
-	
-	static void EditorLoaderCreateData(EditorWorldDataImport editor_data)
-	{
-		EditorLoaderLog("EditorLoaderCreateData");
-		
-		if (!WorldObjects) {
-			LoadMapObjects();
-		}
-		
-		EditorLoaderLog(string.Format("%1 created objects found", editor_data.EditorObjects.Count()));
-		EditorLoaderLog(string.Format("%1 deleted objects found", editor_data.DeletedObjects.Count()));
-		
-		foreach (int deleted_object: editor_data.DeletedObjects) {
-			if (EditorLoaderModule.WorldObjects[deleted_object]) {
-				EditorLoaderDeleteObject(EditorLoaderModule.WorldObjects[deleted_object].Ptr());
-			}
-		}
-		
-		foreach (EditorObjectDataImport data_import: editor_data.EditorObjects) {
-			EditorLoaderSpawnObject(data_import.Type, data_import.Position, data_import.Orientation);
-		}
-	}
-	
-	static void EditorLoaderSpawnObject(string type, vector position, vector orientation)
-	{
-		EditorLoaderLog(string.Format("Creating %1", type));
-		if (GetGame().IsKindOf(type, "Man") || GetGame().IsKindOf(type, "DZ_LightAI")) {
-			return;
-		}
-		
-	    Object obj = GetGame().CreateObjectEx(type, position, ECE_SETUP | ECE_UPDATEPATHGRAPH | ECE_CREATEPHYSICS);
-		
-		if (!obj) {
-			return;
-		}
-		
-	    obj.SetPosition(position);
-	    obj.SetOrientation(orientation);
-	    obj.SetOrientation(obj.GetOrientation());
-	    obj.SetFlags(EntityFlags.STATIC, false);
-	    obj.Update();
-		obj.SetAffectPathgraph(true, false);
-		if (obj.CanAffectPathgraph()) { 
-			GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(GetGame().UpdatePathgraphRegionByObject, 100, false, obj);
-		}
-	}
-
-	static void EditorLoaderDeleteObject(Object obj)
-	{
-		EditorLoaderLog(string.Format("Deleting %1", obj));
-		CF_ObjectManager.HideMapObject(obj);
-	}
-	
+			
 	override void OnClientReady(PlayerBase player, PlayerIdentity identity)
 	{
 		EditorLoaderLog("OnClientReady");
 		
-		for (int i = 0; i < m_WorldDataImports.Count(); i++) {
-			GetRPCManager().SendRPC("EditorLoaderModule", "EditorLoaderRemoteCreateData", new Param2<ref EditorWorldDataImport, bool>(m_WorldDataImports[i], (i == m_WorldDataImports.Count() - 1)), true, identity);
+		// Create and Delete buildings on client side
+		foreach (EditorWorldDataImport editor_data: m_WorldDataImports) {
+						
+			foreach (int deleted_object: editor_data.DeletedObjects) {
+				GetRPCManager().SendRPC("EditorLoaderModule", "EditorLoaderDeleteBuilding", new Param1<int>(deleted_object), true, identity, player);
+			}
+			
+			foreach (EditorObjectDataImport data_import: editor_data.EditorObjects) {
+				GetRPCManager().SendRPC("EditorLoaderModule", "EditorLoaderCreateBuilding", new Param3<string, string, string>(data_import.Type, data_import.Position.ToString(false), data_import.Orientation.ToString(false)), true, identity, player);
+			}
 		}
 	}
 	
