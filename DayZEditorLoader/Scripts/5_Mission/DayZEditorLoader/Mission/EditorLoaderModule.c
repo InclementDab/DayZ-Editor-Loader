@@ -22,10 +22,7 @@ class EditorLoaderModule: JMModuleBase
 		EditorLoaderLog(string.Format("Loaded %1 World Objects into cache", WorldObjects.Count()));
 	}
 	
-	// Known bug: Buildings will stay deleted after joining a server
-	// Find a way to undelete them
 
-	// cant send vectors over RPC :ANGERY:
 	void EditorLoaderCreateBuilding(string type, vector position, vector orientation)
 	{
 		EditorLoaderLog(string.Format("Creating %1", type));
@@ -140,17 +137,12 @@ class EditorLoaderModule: JMModuleBase
 		// Runs thread that watches for EditorLoaderModule.ExportLootData = true;
 		thread ExportLootData();
 	}
-
-			
-	override void OnClientReady(PlayerBase player, PlayerIdentity identity)
-	{
-		EditorLoaderLog("OnClientReady");
-		
-		if (GetGame().IsServer()) {
-			thread SendClientData(player, identity);
-		}
-	}
 	
+	override void OnMissionFinish()
+	{
+		CF.ObjectManager.UnhideAllMapObjects(false);		
+	}	
+		
 	private void SendClientData(PlayerBase player, PlayerIdentity identity)
 	{
 		// Delete buildings on client side
@@ -160,6 +152,16 @@ class EditorLoaderModule: JMModuleBase
 				bool finished = (i == m_WorldDataImports.Count() - 1 && j == m_WorldDataImports[i].DeletedObjects.Count() - 1);
 				GetRPCManager().SendRPC("EditorLoaderModule", "EditorLoaderRemoteDeleteBuilding", new Param2<int, bool>(m_WorldDataImports[i].DeletedObjects[j], finished), true, identity, player);
 			}
+		}
+	}
+	
+	// When client connects to server, send the data to said client
+	override void OnInvokeConnect(PlayerBase player, PlayerIdentity identity)
+	{
+		EditorLoaderLog("OnInvokeConnect");
+				
+		if (GetGame().IsServer()) {
+			thread SendClientData(player, identity);
 		}
 	}
 	
