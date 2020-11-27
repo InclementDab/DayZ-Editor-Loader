@@ -29,6 +29,7 @@ class EditorLoaderModule: JMModuleBase
 	void EditorLoaderCreateBuilding(string type, vector position, vector orientation)
 	{
 		EditorLoaderLog(string.Format("Creating %1", type));
+		// This will cause.... issues (Might remove in the future for Trader mod?)
 		if (GetGame().IsKindOf(type, "Man") || GetGame().IsKindOf(type, "DZ_LightAI")) {
 			return;
 		}
