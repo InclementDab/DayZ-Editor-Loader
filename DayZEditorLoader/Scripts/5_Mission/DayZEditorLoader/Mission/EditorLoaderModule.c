@@ -180,6 +180,18 @@ class EditorLoaderModule: JMModuleBase
 		}
 	}
 	
+	private void ExportLootData()
+	{
+		while (true) {
+			if (GetCEApi() && ExportLootData) {
+				GetCEApi().ExportProxyData(vector.Zero, 100000);
+				return;
+			}
+			
+			Sleep(1000);
+		}
+	}
+	
 	override bool IsClient() 
 	{
 		return true;
@@ -193,18 +205,5 @@ class EditorLoaderModule: JMModuleBase
 	static void EditorLoaderLog(string msg)
 	{
 		PrintFormat("[EditorLoader] %1", msg);
-	}
-	
-		
-	private void ExportLootData()
-	{
-		while (true) {
-			if (GetCEApi() && ExportLootData) {
-				GetCEApi().ExportProxyData(vector.Zero, 100000);
-				return;
-			}
-			
-			Sleep(1000);
-		}
 	}
 }
