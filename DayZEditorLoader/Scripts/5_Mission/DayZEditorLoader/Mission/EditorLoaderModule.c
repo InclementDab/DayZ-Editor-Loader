@@ -71,14 +71,18 @@ class EditorLoaderModule: JMModuleBase
 	
 	void EditorLoaderRemoteDeleteBuilding(CallType type, ref ParamsReadContext ctx, ref PlayerIdentity sender, ref Object target)
 	{
-		Param1<int> delete_params;
+		Param2<int, bool> delete_params;
 		if (!ctx.Read(delete_params)) {
 			return;
 		}
 		
 		EditorLoaderDeleteBuilding(delete_params.param1);
+		
+		if (delete_params.param2) {
+			EditorLoaderLog("All loading complete. Clearing Cache...");
+			WorldObjects.Clear();
+		}
 	}
-	
 
 	override void OnMissionStart()
 	{
@@ -154,21 +158,25 @@ class EditorLoaderModule: JMModuleBase
 	{
 		EditorLoaderLog("OnClientReady");
 		
-		thread SendClientData(player, identity);
+		if (GetGame().IsServer()) {
+			thread SendClientData(player, identity);
+		}
 	}
 	
 	private void SendClientData(PlayerBase player, PlayerIdentity identity)
 	{
 		// Create and Delete buildings on client side
-		foreach (EditorWorldDataImport editor_data: m_WorldDataImports) {
+		for (int i = 0; i < m_WorldDataImports.Count(); i++) {
 				
-			foreach (EditorObjectDataImport data_import: editor_data.EditorObjects) {
+			foreach (EditorObjectDataImport data_import: m_WorldDataImports[i].EditorObjects) {
 				GetRPCManager().SendRPC("EditorLoaderModule", "EditorLoaderRemoteCreateBuilding", new Param3<string, string, string>(data_import.Type, data_import.Position.ToString(false), data_import.Orientation.ToString(false)), true, identity, player);
 			}
 			
-			foreach (int deleted_object: editor_data.DeletedObjects) {
-				GetRPCManager().SendRPC("EditorLoaderModule", "EditorLoaderRemoteDeleteBuilding", new Param1<int>(deleted_object), true, identity, player);
-			}			
+			for (int j = 0; j < m_WorldDataImports[i].DeletedObjects.Count(); j++) {
+				// Signals that its the final deletion in the final file
+				bool finished = (i == m_WorldDataImports.Count() - 1 && j == m_WorldDataImports[i].DeletedObjects.Count() - 1);
+				GetRPCManager().SendRPC("EditorLoaderModule", "EditorLoaderRemoteDeleteBuilding", new Param2<int, bool>(m_WorldDataImports[i].DeletedObjects[j], finished), true, identity, player);
+			}
 		}
 	}
 	
