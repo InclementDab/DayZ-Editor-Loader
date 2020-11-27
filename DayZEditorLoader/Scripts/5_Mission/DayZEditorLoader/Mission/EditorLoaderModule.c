@@ -19,7 +19,6 @@ class EditorLoaderModule: JMModuleBase
 			WorldObjects.Insert(o.GetID(), new OLinkT(o));
 		}
 		
-				
 		EditorLoaderLog(string.Format("Loaded %1 World Objects into cache", WorldObjects.Count()));
 	}
 	
@@ -27,20 +26,20 @@ class EditorLoaderModule: JMModuleBase
 	// Find a way to undelete them
 
 	// cant send vectors over RPC :ANGERY:
-	void EditorLoaderCreateBuilding(string type, string position, string orientation)
+	void EditorLoaderCreateBuilding(string type, vector position, vector orientation)
 	{
 		EditorLoaderLog(string.Format("Creating %1", type));
 		if (GetGame().IsKindOf(type, "Man") || GetGame().IsKindOf(type, "DZ_LightAI")) {
 			return;
 		}
 		
-	    Object obj = GetGame().CreateObjectEx(type, position.ToVector(), ECE_SETUP | ECE_UPDATEPATHGRAPH | ECE_CREATEPHYSICS);
+	    Object obj = GetGame().CreateObjectEx(type, position, ECE_SETUP | ECE_UPDATEPATHGRAPH | ECE_CREATEPHYSICS);
 		
 		if (!obj) {
 			return;
 		}
 		
-	    obj.SetOrientation(orientation.ToVector());
+	    obj.SetOrientation(orientation);
 	    obj.SetFlags(EntityFlags.STATIC, false);
 	    obj.Update();
 		obj.SetAffectPathgraph(true, false);
@@ -58,16 +57,6 @@ class EditorLoaderModule: JMModuleBase
 		EditorLoaderLog(string.Format("Deleting %1", id));
 		CF_ObjectManager.HideMapObject(WorldObjects[id].Ptr());
 	}
-	
-	void EditorLoaderRemoteCreateBuilding(CallType type, ref ParamsReadContext ctx, ref PlayerIdentity sender, ref Object target)
-	{
-		Param3<string, string, string> create_params;
-		if (!ctx.Read(create_params)) {
-			return;
-		}
-		
-		EditorLoaderCreateBuilding(create_params.param1, create_params.param2, create_params.param3);
-	}	
 	
 	void EditorLoaderRemoteDeleteBuilding(CallType type, ref ParamsReadContext ctx, ref PlayerIdentity sender, ref Object target)
 	{
@@ -88,7 +77,7 @@ class EditorLoaderModule: JMModuleBase
 	{
 		EditorLoaderLog("OnMissionStart");
 		
-		GetRPCManager().AddRPC("EditorLoaderModule", "EditorLoaderRemoteCreateBuilding", this);
+		//GetRPCManager().AddRPC("EditorLoaderModule", "EditorLoaderRemoteCreateBuilding", this);
 		GetRPCManager().AddRPC("EditorLoaderModule", "EditorLoaderRemoteDeleteBuilding", this);
 		
 
@@ -139,7 +128,7 @@ class EditorLoaderModule: JMModuleBase
 			}
 			
 			foreach (EditorObjectDataImport editor_object: editor_data.EditorObjects) {
-				EditorLoaderCreateBuilding(editor_object.Type, editor_object.Position.ToString(false), editor_object.Orientation.ToString(false));
+				EditorLoaderCreateBuilding(editor_object.Type, editor_object.Position, editor_object.Orientation);
 			}
 		}
 				
@@ -165,13 +154,8 @@ class EditorLoaderModule: JMModuleBase
 	
 	private void SendClientData(PlayerBase player, PlayerIdentity identity)
 	{
-		// Create and Delete buildings on client side
+		// Delete buildings on client side
 		for (int i = 0; i < m_WorldDataImports.Count(); i++) {
-				
-			foreach (EditorObjectDataImport data_import: m_WorldDataImports[i].EditorObjects) {
-				GetRPCManager().SendRPC("EditorLoaderModule", "EditorLoaderRemoteCreateBuilding", new Param3<string, string, string>(data_import.Type, data_import.Position.ToString(false), data_import.Orientation.ToString(false)), true, identity, player);
-			}
-			
 			for (int j = 0; j < m_WorldDataImports[i].DeletedObjects.Count(); j++) {
 				// Signals that its the final deletion in the final file
 				bool finished = (i == m_WorldDataImports.Count() - 1 && j == m_WorldDataImports[i].DeletedObjects.Count() - 1);
