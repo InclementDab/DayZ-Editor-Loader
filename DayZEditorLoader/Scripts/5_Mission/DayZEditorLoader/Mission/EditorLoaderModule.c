@@ -26,7 +26,6 @@ class EditorLoaderModule: JMModuleBase
 	// Known bug: Buildings will stay deleted after joining a server
 	// Find a way to undelete them
 
-	
 	// cant send vectors over RPC :ANGERY:
 	void EditorLoaderCreateBuilding(string type, string position, string orientation)
 	{
@@ -59,13 +58,34 @@ class EditorLoaderModule: JMModuleBase
 		EditorLoaderLog(string.Format("Deleting %1", id));
 		CF_ObjectManager.HideMapObject(WorldObjects[id].Ptr());
 	}
+	
+	void EditorLoaderRemoteCreateBuilding(CallType type, ref ParamsReadContext ctx, ref PlayerIdentity sender, ref Object target)
+	{
+		Param3<string, string, string> create_params;
+		if (!ctx.Read(create_params)) {
+			return;
+		}
+		
+		EditorLoaderCreateBuilding(create_params.param1, create_params.param2, create_params.param3);
+	}	
+	
+	void EditorLoaderRemoteDeleteBuilding(CallType type, ref ParamsReadContext ctx, ref PlayerIdentity sender, ref Object target)
+	{
+		Param1<int> delete_params;
+		if (!ctx.Read(delete_params)) {
+			return;
+		}
+		
+		EditorLoaderDeleteBuilding(delete_params.param1);
+	}
+	
 
 	override void OnMissionStart()
 	{
 		EditorLoaderLog("OnMissionStart");
 		
-		GetRPCManager().AddRPC("EditorLoaderModule", "EditorLoaderCreateBuilding", this);
-		GetRPCManager().AddRPC("EditorLoaderModule", "EditorLoaderDeleteBuilding", this);
+		GetRPCManager().AddRPC("EditorLoaderModule", "EditorLoaderRemoteCreateBuilding", this);
+		GetRPCManager().AddRPC("EditorLoaderModule", "EditorLoaderRemoteDeleteBuilding", this);
 		
 
 		// Everything below this line is the Server side syncronization :)
@@ -134,16 +154,21 @@ class EditorLoaderModule: JMModuleBase
 	{
 		EditorLoaderLog("OnClientReady");
 		
+		thread SendClientData(player, identity);
+	}
+	
+	private void SendClientData(PlayerBase player, PlayerIdentity identity)
+	{
 		// Create and Delete buildings on client side
 		foreach (EditorWorldDataImport editor_data: m_WorldDataImports) {
-						
-			foreach (int deleted_object: editor_data.DeletedObjects) {
-				GetRPCManager().SendRPC("EditorLoaderModule", "EditorLoaderDeleteBuilding", new Param1<int>(deleted_object), true, identity, player);
+				
+			foreach (EditorObjectDataImport data_import: editor_data.EditorObjects) {
+				GetRPCManager().SendRPC("EditorLoaderModule", "EditorLoaderRemoteCreateBuilding", new Param3<string, string, string>(data_import.Type, data_import.Position.ToString(false), data_import.Orientation.ToString(false)), true, identity, player);
 			}
 			
-			foreach (EditorObjectDataImport data_import: editor_data.EditorObjects) {
-				GetRPCManager().SendRPC("EditorLoaderModule", "EditorLoaderCreateBuilding", new Param3<string, string, string>(data_import.Type, data_import.Position.ToString(false), data_import.Orientation.ToString(false)), true, identity, player);
-			}
+			foreach (int deleted_object: editor_data.DeletedObjects) {
+				GetRPCManager().SendRPC("EditorLoaderModule", "EditorLoaderRemoteDeleteBuilding", new Param1<int>(deleted_object), true, identity, player);
+			}			
 		}
 	}
 	
