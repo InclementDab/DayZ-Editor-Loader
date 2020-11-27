@@ -49,7 +49,7 @@ class EditorLoaderModule: JMModuleBase
 		}
 	}
 	
-	void EditorLoaderDeleteBuilding(int id)
+	void EditorLoaderDeleteBuilding(int id, bool clear_cache = false)
 	{
 		if (!WorldObjects) {
 			LoadMapObjects();
@@ -57,6 +57,11 @@ class EditorLoaderModule: JMModuleBase
 		
 		EditorLoaderLog(string.Format("Deleting %1", id));
 		CF_ObjectManager.HideMapObject(WorldObjects[id].Ptr());
+		
+		if (clear_cache) {
+			EditorLoaderLog("Clearing Cache...");
+			WorldObjects.Clear();
+		}
 	}
 	
 	void EditorLoaderRemoteDeleteBuilding(CallType type, ref ParamsReadContext ctx, ref PlayerIdentity sender, ref Object target)
@@ -66,21 +71,14 @@ class EditorLoaderModule: JMModuleBase
 			return;
 		}
 		
-		EditorLoaderDeleteBuilding(delete_params.param1);
-		
-		if (delete_params.param2) {
-			EditorLoaderLog("All loading complete. Clearing Cache...");
-			WorldObjects.Clear();
-		}
+		EditorLoaderDeleteBuilding(delete_params.param1, delete_params.param2);
 	}
 
 	override void OnMissionStart()
 	{
 		EditorLoaderLog("OnMissionStart");
 		
-		//GetRPCManager().AddRPC("EditorLoaderModule", "EditorLoaderRemoteCreateBuilding", this);
 		GetRPCManager().AddRPC("EditorLoaderModule", "EditorLoaderRemoteDeleteBuilding", this);
-		
 
 		// Everything below this line is the Server side syncronization :)
 		if (!IsMissionHost()) return;
@@ -132,7 +130,7 @@ class EditorLoaderModule: JMModuleBase
 				EditorLoaderCreateBuilding(editor_object.Type, editor_object.Position, editor_object.Orientation);
 			}
 		}
-				
+
 		// Maybe having a massive map this big is hurting clients :)
 		// Server side only
 		if (WorldObjects) {
