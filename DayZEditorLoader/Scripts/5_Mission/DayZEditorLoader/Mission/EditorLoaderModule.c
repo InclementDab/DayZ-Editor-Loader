@@ -138,6 +138,7 @@ class EditorLoaderModule: JMModuleBase
 		thread ExportLootData();
 	}
 	
+	// Runs on both client AND server
 	override void OnMissionFinish()
 	{
 		CF.ObjectManager.UnhideAllMapObjects(false);		
