@@ -22,6 +22,10 @@ class EditorLoaderModule: JMModuleBase
 		EditorLoaderLog(string.Format("Loaded %1 World Objects into cache", WorldObjects.Count()));
 	}
 	
+	override void OnInit()
+	{
+		GetRPCManager().AddRPC("EditorLoaderModule", "EditorLoaderRemoteDeleteBuilding", this);
+	}
 
 	void EditorLoaderCreateBuilding(string type, vector position, vector orientation)
 	{
@@ -64,34 +68,7 @@ class EditorLoaderModule: JMModuleBase
 			delete WorldObjects;
 		}
 	}
-	
-	// Server recieves this	when client loads in
-	void EditorLoaderRemoteLoad(CallType type, ref ParamsReadContext ctx, ref PlayerIdentity sender, ref Object target)
-	{
-		Param1<PlayerBase> load_params;
-		if (!ctx.Read(load_params)) {
-			return;
-		}
-				
-		EditorLoaderLog("EditorLoaderRemoteLoad");
 		
-		if (GetGame().IsServer()) {
-			thread SendClientData(load_params.param1, sender);
-		}
-	}
-	
-	private void SendClientData(PlayerBase player, PlayerIdentity identity)
-	{
-		// Delete buildings on client side
-		for (int i = 0; i < m_WorldDataImports.Count(); i++) {
-			for (int j = 0; j < m_WorldDataImports[i].DeletedObjects.Count(); j++) {
-				// Signals that its the final deletion in the final file
-				bool finished = (i == m_WorldDataImports.Count() - 1 && j == m_WorldDataImports[i].DeletedObjects.Count() - 1);
-				GetRPCManager().SendRPC("EditorLoaderModule", "EditorLoaderRemoteDeleteBuilding", new Param2<int, bool>(m_WorldDataImports[i].DeletedObjects[j], finished), true, identity, player);
-			}
-		}
-	}
-	
 	void EditorLoaderRemoteDeleteBuilding(CallType type, ref ParamsReadContext ctx, ref PlayerIdentity sender, ref Object target)
 	{
 		Param2<int, bool> delete_params;
@@ -107,9 +84,6 @@ class EditorLoaderModule: JMModuleBase
 	{
 		EditorLoaderLog("OnMissionStart");
 		
-		GetRPCManager().AddRPC("EditorLoaderModule", "EditorLoaderRemoteLoad", this);
-		GetRPCManager().AddRPC("EditorLoaderModule", "EditorLoaderRemoteDeleteBuilding", this);
-
 		// Everything below this line is the Server side syncronization :)
 		if (IsMissionHost()) {
 			
@@ -176,6 +150,28 @@ class EditorLoaderModule: JMModuleBase
 			GetRPCManager().SendRPC("EditorLoaderModule", "EditorLoaderRemoteLoad", new Param1<PlayerBase>(GetGame().GetPlayer()), true);
 		}
 	}
+	
+	override void OnClientPrepare(PlayerIdentity identity, out bool useDB, out vector pos, out float yaw, out int preloadTimeout)
+	{
+		EditorLoaderLog("OnClientPrepare");
+		
+		if (GetGame().IsServer()) {
+			thread SendClientData(identity);
+		}
+	}
+	
+	private void SendClientData(PlayerIdentity identity)
+	{
+		// Delete buildings on client side
+		for (int i = 0; i < m_WorldDataImports.Count(); i++) {
+			for (int j = 0; j < m_WorldDataImports[i].DeletedObjects.Count(); j++) {
+				// Signals that its the final deletion in the final file
+				bool finished = (i == m_WorldDataImports.Count() - 1 && j == m_WorldDataImports[i].DeletedObjects.Count() - 1);
+				GetRPCManager().SendRPC("EditorLoaderModule", "EditorLoaderRemoteDeleteBuilding", new Param2<int, bool>(m_WorldDataImports[i].DeletedObjects[j], finished), true, identity);
+			}
+		}
+	}
+	
 	
 	// Runs on both client AND server
 	override void OnMissionFinish()
