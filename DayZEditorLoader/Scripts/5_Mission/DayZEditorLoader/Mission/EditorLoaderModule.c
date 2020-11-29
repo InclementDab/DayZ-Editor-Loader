@@ -52,12 +52,16 @@ class EditorLoaderModule: JMModuleBase
 			LoadMapObjects();
 		}
 		
-		EditorLoaderLog(string.Format("Deleting %1", id));
-		CF_ObjectManager.HideMapObject(WorldObjects[id].Ptr());
+		//EditorLoaderLog(string.Format("Deleting %1", id));
+		
+		OLinkT deleted_object = WorldObjects[id];
+		if (deleted_object) {
+			CF_ObjectManager.HideMapObject(deleted_object.Ptr());
+		}
 		
 		if (clear_cache) {
 			EditorLoaderLog("Clearing Cache...");
-			WorldObjects.Clear();
+			delete WorldObjects;
 		}
 	}
 	
@@ -74,7 +78,7 @@ class EditorLoaderModule: JMModuleBase
 	override void OnMissionStart()
 	{
 		EditorLoaderLog("OnMissionStart");
-		
+				
 		GetRPCManager().AddRPC("EditorLoaderModule", "EditorLoaderRemoteDeleteBuilding", this);
 
 		// Everything below this line is the Server side syncronization :)
@@ -131,7 +135,7 @@ class EditorLoaderModule: JMModuleBase
 		// Maybe having a massive map this big is hurting clients :)
 		// Server side only
 		if (WorldObjects) {
-			WorldObjects.Clear();	
+			delete WorldObjects;	
 		}
 		
 		// Runs thread that watches for EditorLoaderModule.ExportLootData = true;
