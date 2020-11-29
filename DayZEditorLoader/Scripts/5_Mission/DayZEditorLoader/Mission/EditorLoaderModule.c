@@ -1,9 +1,7 @@
 class EditorLoaderModule: JMModuleBase
 {
 	static bool ExportLootData = false;	
-	
-	protected bool m_Loaded = false;
-	
+		
 	static ref map<int, ref OLinkT> WorldObjects;
 	protected ref array<ref EditorWorldDataImport> m_WorldDataImports = {};
 	
@@ -67,89 +65,21 @@ class EditorLoaderModule: JMModuleBase
 		}
 	}
 	
-	void EditorLoaderRemoteDeleteBuilding(CallType type, ref ParamsReadContext ctx, ref PlayerIdentity sender, ref Object target)
+	// Server recieves this	when client loads in
+	void EditorLoaderRemoteLoad(CallType type, ref ParamsReadContext ctx, ref PlayerIdentity sender, ref Object target)
 	{
-		Param2<int, bool> delete_params;
-		if (!ctx.Read(delete_params)) {
+		Param1<PlayerBase> load_params;
+		if (!ctx.Read(load_params)) {
 			return;
 		}
-		
-		EditorLoaderDeleteBuilding(delete_params.param1, delete_params.param2);
-	}
-
-	override void OnMissionStart()
-	{
-		EditorLoaderLog("OnMissionStart");
 				
-		GetRPCManager().AddRPC("EditorLoaderModule", "EditorLoaderRemoteDeleteBuilding", this);
-
-		// Everything below this line is the Server side syncronization :)
-		if (!IsMissionHost()) return;
-	
-		if (!FileExist("$profile:/EditorFiles")) {
-			EditorLoaderLog("EditorFiles directory not found, creating...");
-			if (!MakeDirectory("$profile:/EditorFiles")) {
-				EditorLoaderLog("Could not create EditorFiles directory. Exiting...");
-				return;
-			}
+		EditorLoaderLog("EditorLoaderRemoteLoad");
+		
+		if (GetGame().IsServer()) {
+			thread SendClientData(load_params.param1, sender);
 		}
-
-		TStringArray files = {};
-		string file_name;
-		FileAttr file_attr;
-		
-		FindFileHandle find_handle = FindFile("$profile:/EditorFiles/*.dze", file_name, file_attr, FindFileFlags.ALL);
-		files.Insert(file_name);
-		
-		while (FindNextFile(find_handle, file_name, file_attr)) {
-			files.Insert(file_name);
-		}
-		
-		CloseFindFile(find_handle);
-
-		foreach (string file: files) {
-			EditorLoaderLog("File found: " + file);
-			EditorWorldDataImport data_import;
-			JsonFileLoader<EditorWorldDataImport>.JsonLoadFile("$profile:/EditorFiles/" + file, data_import);
-			
-			if (data_import) {
-				m_WorldDataImports.Insert(data_import);
-				EditorLoaderLog("Loaded $profile:/EditorFiles/" + file);
-			}
-		}
-		
-		
-		// Create and Delete buildings on Server Side
-		foreach (EditorWorldDataImport editor_data: m_WorldDataImports) {
-			
-			EditorLoaderLog(string.Format("%1 created objects found", editor_data.EditorObjects.Count()));
-			EditorLoaderLog(string.Format("%1 deleted objects found", editor_data.DeletedObjects.Count()));
-			
-			foreach (int deleted_object: editor_data.DeletedObjects) {
-				EditorLoaderDeleteBuilding(deleted_object);
-			}
-			
-			foreach (EditorObjectDataImport editor_object: editor_data.EditorObjects) {
-				EditorLoaderCreateBuilding(editor_object.Type, editor_object.Position, editor_object.Orientation);
-			}
-		}
-
-		// Maybe having a massive map this big is hurting clients :)
-		// Server side only
-		if (WorldObjects) {
-			delete WorldObjects;	
-		}
-		
-		// Runs thread that watches for EditorLoaderModule.ExportLootData = true;
-		thread ExportLootData();
 	}
 	
-	// Runs on both client AND server
-	override void OnMissionFinish()
-	{
-		CF.ObjectManager.UnhideAllMapObjects(false);		
-	}	
-		
 	private void SendClientData(PlayerBase player, PlayerIdentity identity)
 	{
 		// Delete buildings on client side
@@ -162,18 +92,97 @@ class EditorLoaderModule: JMModuleBase
 		}
 	}
 	
-	// When client connects to server, send the data to said client
-	// This gets called on every restart, m_Loaded is a counter to that
-	override void OnInvokeConnect(PlayerBase player, PlayerIdentity identity)
+	void EditorLoaderRemoteDeleteBuilding(CallType type, ref ParamsReadContext ctx, ref PlayerIdentity sender, ref Object target)
 	{
-		EditorLoaderLog("OnInvokeConnect");
+		Param2<int, bool> delete_params;
+		if (!ctx.Read(delete_params)) {
+			return;
+		}
+		
+		EditorLoaderDeleteBuilding(delete_params.param1, delete_params.param2);
+	}	
+
+
+	override void OnMissionStart()
+	{
+		EditorLoaderLog("OnMissionStart");
+		
+		GetRPCManager().AddRPC("EditorLoaderModule", "EditorLoaderRemoteLoad", this);
+		GetRPCManager().AddRPC("EditorLoaderModule", "EditorLoaderRemoteDeleteBuilding", this);
+
+		// Everything below this line is the Server side syncronization :)
+		if (IsMissionHost()) {
+			
+			if (!FileExist("$profile:/EditorFiles")) {
+				EditorLoaderLog("EditorFiles directory not found, creating...");
+				if (!MakeDirectory("$profile:/EditorFiles")) {
+					EditorLoaderLog("Could not create EditorFiles directory. Exiting...");
+					return;
+				}
+			}
+	
+			TStringArray files = {};
+			string file_name;
+			FileAttr file_attr;
+			
+			FindFileHandle find_handle = FindFile("$profile:/EditorFiles/*.dze", file_name, file_attr, FindFileFlags.ALL);
+			files.Insert(file_name);
+			
+			while (FindNextFile(find_handle, file_name, file_attr)) {
+				files.Insert(file_name);
+			}
+			
+			CloseFindFile(find_handle);
+	
+			foreach (string file: files) {
+				EditorLoaderLog("File found: " + file);
+				EditorWorldDataImport data_import;
+				JsonFileLoader<EditorWorldDataImport>.JsonLoadFile("$profile:/EditorFiles/" + file, data_import);
 				
-		if (GetGame().IsServer() && !m_Loaded) {
-			thread SendClientData(player, identity);
-			m_Loaded = true;
+				if (data_import) {
+					m_WorldDataImports.Insert(data_import);
+					EditorLoaderLog("Loaded $profile:/EditorFiles/" + file);
+				}
+			}
+			
+			
+			// Create and Delete buildings on Server Side
+			foreach (EditorWorldDataImport editor_data: m_WorldDataImports) {
+				
+				EditorLoaderLog(string.Format("%1 created objects found", editor_data.EditorObjects.Count()));
+				EditorLoaderLog(string.Format("%1 deleted objects found", editor_data.DeletedObjects.Count()));
+				
+				foreach (int deleted_object: editor_data.DeletedObjects) {
+					EditorLoaderDeleteBuilding(deleted_object);
+				}
+				
+				foreach (EditorObjectDataImport editor_object: editor_data.EditorObjects) {
+					EditorLoaderCreateBuilding(editor_object.Type, editor_object.Position, editor_object.Orientation);
+				}
+			}
+	
+			// Maybe having a massive map this big is hurting clients :)
+			// Server side only
+			if (WorldObjects) {
+				delete WorldObjects;	
+			}
+			
+			// Runs thread that watches for EditorLoaderModule.ExportLootData = true;
+			thread ExportLootData();
+		}
+		
+		if (IsMissionClient()) {
+			EditorLoaderLog("Signaling server to load new client...");
+			GetRPCManager().SendRPC("EditorLoaderModule", "EditorLoaderRemoteLoad", new Param1<PlayerBase>(GetGame().GetPlayer()), true);
 		}
 	}
 	
+	// Runs on both client AND server
+	override void OnMissionFinish()
+	{
+		CF.ObjectManager.UnhideAllMapObjects(false);		
+	}
+		
 	private void ExportLootData()
 	{
 		while (true) {
