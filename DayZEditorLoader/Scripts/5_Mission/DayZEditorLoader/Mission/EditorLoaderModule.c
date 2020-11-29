@@ -5,6 +5,11 @@ class EditorLoaderModule: JMModuleBase
 	static ref map<int, ref OLinkT> WorldObjects;
 	protected ref array<ref EditorWorldDataImport> m_WorldDataImports = {};
 	
+	void EditorLoaderModule()
+	{
+		GetRPCManager().AddRPC("EditorLoaderModule", "EditorLoaderRemoteDeleteBuilding", this);
+	}
+	
 	static void LoadMapObjects()
 	{
 		WorldObjects = new map<int, ref OLinkT>();
@@ -20,11 +25,6 @@ class EditorLoaderModule: JMModuleBase
 		}
 		
 		EditorLoaderLog(string.Format("Loaded %1 World Objects into cache", WorldObjects.Count()));
-	}
-	
-	override void OnInit()
-	{
-		GetRPCManager().AddRPC("EditorLoaderModule", "EditorLoaderRemoteDeleteBuilding", this);
 	}
 
 	void EditorLoaderCreateBuilding(string type, vector position, vector orientation)
@@ -144,21 +144,27 @@ class EditorLoaderModule: JMModuleBase
 			// Runs thread that watches for EditorLoaderModule.ExportLootData = true;
 			thread ExportLootData();
 		}
-		
-		if (IsMissionClient()) {
-			EditorLoaderLog("Signaling server to load new client...");
-			GetRPCManager().SendRPC("EditorLoaderModule", "EditorLoaderRemoteLoad", new Param1<PlayerBase>(GetGame().GetPlayer()), true);
-		}
 	}
 	
-	override void OnClientPrepare(PlayerIdentity identity, out bool useDB, out vector pos, out float yaw, out int preloadTimeout)
-	{
-		EditorLoaderLog("OnClientPrepare");
+	protected ref array<string> m_LoadedPlayers = {};
+	override void OnInvokeConnect(PlayerBase player, PlayerIdentity identity)
+	{		
 		
-		if (GetGame().IsServer()) {
+		string id = String(identity.GetId());
+		
+		EditorLoaderLog("OnInvokeConnect");
+		if (GetGame().IsServer() && (m_LoadedPlayers.Find(id) == -1)) {
+			m_LoadedPlayers.Insert(id);
 			thread SendClientData(identity);
 		}
 	}
+		
+	override void OnClientDisconnect(PlayerBase player, PlayerIdentity identity, string uid)
+	{
+		EditorLoaderLog("OnClientDisconnect");
+		m_LoadedPlayers.Remove(m_LoadedPlayers.Find(uid));
+	}
+	
 	
 	private void SendClientData(PlayerIdentity identity)
 	{
