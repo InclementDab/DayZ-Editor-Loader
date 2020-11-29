@@ -1,6 +1,8 @@
 class EditorLoaderModule: JMModuleBase
 {
-	static bool ExportLootData = false;
+	static bool ExportLootData = false;	
+	
+	protected bool m_Loaded = false;
 	
 	static ref map<int, ref OLinkT> WorldObjects;
 	protected ref array<ref EditorWorldDataImport> m_WorldDataImports = {};
@@ -161,12 +163,14 @@ class EditorLoaderModule: JMModuleBase
 	}
 	
 	// When client connects to server, send the data to said client
+	// This gets called on every restart, m_Loaded is a counter to that
 	override void OnInvokeConnect(PlayerBase player, PlayerIdentity identity)
 	{
 		EditorLoaderLog("OnInvokeConnect");
 				
-		if (GetGame().IsServer()) {
+		if (GetGame().IsServer() && !m_Loaded) {
 			thread SendClientData(player, identity);
+			m_Loaded = true;
 		}
 	}
 	
