@@ -1,3 +1,5 @@
+typedef array<int> DeletedBuildingsPacket;
+
 class EditorLoaderModule: JMModuleBase
 {
 	static bool ExportLootData = false;	
@@ -50,6 +52,33 @@ class EditorLoaderModule: JMModuleBase
 		}
 	}
 	
+	void EditorLoaderDeleteBuildings(DeletedBuildingsPacket packet, bool clear_cache = false)
+	{	
+		if (!WorldObjects) {
+			LoadMapObjects();
+		}
+		
+		//EditorLoaderLog(string.Format("Deleting %1", id));
+		
+		foreach (int id: packet) {
+			if (WorldObjects[id]) {
+				CF_ObjectManager.HideMapObject(WorldObjects[id].Ptr());
+			}
+		}
+		
+		
+		if (clear_cache) {
+			EditorLoaderLog("Clearing Cache...");
+			if (WorldObjects) {
+				for (int i = 0; i < WorldObjects.Count(); i++) {
+					delete WorldObjects[i];
+				}
+				
+				delete WorldObjects;	
+			}
+		}
+	}
+	
 	void EditorLoaderDeleteBuilding(int id, bool clear_cache = false)
 	{
 		if (!WorldObjects) {
@@ -61,6 +90,7 @@ class EditorLoaderModule: JMModuleBase
 		if (WorldObjects[id]) {
 			CF_ObjectManager.HideMapObject(WorldObjects[id].Ptr());
 		}
+		
 		
 		if (clear_cache) {
 			EditorLoaderLog("Clearing Cache...");
@@ -76,12 +106,13 @@ class EditorLoaderModule: JMModuleBase
 		
 	void EditorLoaderRemoteDeleteBuilding(CallType type, ref ParamsReadContext ctx, ref PlayerIdentity sender, ref Object target)
 	{
-		Param2<int, bool> delete_params;
+		Param2<ref DeletedBuildingsPacket, bool> delete_params(new DeletedBuildingsPacket(), false);
 		if (!ctx.Read(delete_params)) {
 			return;
 		}
 		
-		EditorLoaderDeleteBuilding(delete_params.param1, delete_params.param2);
+		DeletedBuildingsPacket packet = delete_params.param1;		
+		EditorLoaderDeleteBuildings(packet, delete_params.param2);
 	}	
 
 
@@ -91,7 +122,6 @@ class EditorLoaderModule: JMModuleBase
 		
 		// Everything below this line is the Server side syncronization :)
 		if (IsMissionHost()) {
-			
 			if (!FileExist("$profile:/EditorFiles")) {
 				EditorLoaderLog("EditorFiles directory not found, creating...");
 				if (!MakeDirectory("$profile:/EditorFiles")) {
@@ -177,14 +207,24 @@ class EditorLoaderModule: JMModuleBase
 	
 	private void SendClientData(PlayerIdentity identity)
 	{
+		DeletedBuildingsPacket deleted_packets();
+		
 		// Delete buildings on client side
 		for (int i = 0; i < m_WorldDataImports.Count(); i++) {
 			for (int j = 0; j < m_WorldDataImports[i].DeletedObjects.Count(); j++) {
 				// Signals that its the final deletion in the final file
 				bool finished = (i == m_WorldDataImports.Count() - 1 && j == m_WorldDataImports[i].DeletedObjects.Count() - 1);
-				GetRPCManager().SendRPC("EditorLoaderModule", "EditorLoaderRemoteDeleteBuilding", new Param2<int, bool>(m_WorldDataImports[i].DeletedObjects[j], finished), true, identity);
+				deleted_packets.Insert(m_WorldDataImports[i].DeletedObjects[j]);
+				
+				// Send in packages of 50
+				if (deleted_packets.Count() >= 50) {
+					GetRPCManager().SendRPC("EditorLoaderModule", "EditorLoaderRemoteDeleteBuilding", new Param2<ref DeletedBuildingsPacket, bool>(deleted_packets, false), true, identity);
+					deleted_packets.Clear();
+				}				
 			}
 		}
+		
+		GetRPCManager().SendRPC("EditorLoaderModule", "EditorLoaderRemoteDeleteBuilding", new Param2<ref DeletedBuildingsPacket, bool>(deleted_packets, true), true, identity);
 	}
 	
 	
