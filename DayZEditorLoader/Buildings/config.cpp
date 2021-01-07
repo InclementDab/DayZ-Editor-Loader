@@ -12,9 +12,24 @@ class CfgPatches
 class CfgVehicles
 {
     class HouseNoDestruct;
-    class ObjectRemover20x20: HouseNoDestruct
+    class ObjectRemoverBase: HouseNoDestruct
     {
         scope=1;
         model="__.p3d";
+    };
+
+    class ObjectRemover10x10: ObjectRemoverBase
+    {
+        radius=10;
+    };
+
+    class ObjectRemover20x20: ObjectRemoverBase
+    {
+        radius=20;
+    };
+
+    class ObjectRemover50x50: ObjectRemoverBase
+    {
+        radius=50;
     };
 };

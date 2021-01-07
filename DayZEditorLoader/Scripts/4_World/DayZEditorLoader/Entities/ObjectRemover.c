@@ -17,13 +17,8 @@ class ObjectRemoverBase: BuildingSuper
 		m_HiddenMapObjects = CF.ObjectManager.HideMapObjectsInRadius(GetPosition(), GetRadius());
 	}
 	
-	float GetRadius();
-}
-
-class ObjectRemover20x20: ObjectRemoverBase
-{	
-	override float GetRadius()
+	float GetRadius()
 	{
-		return 20;
+		return ConfigGetInt("radius");
 	}
 }
