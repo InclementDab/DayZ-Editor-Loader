@@ -12,9 +12,9 @@ class CfgPatches
 class CfgVehicles
 {
     class HouseNoDestruct;
-    class BuildingYeeter20x20: HouseNoDestruct
+    class ObjectRemover20x20: HouseNoDestruct
     {
         scope=1;
-        model="DayZEditorLoader\\Buildings\\DebugCylinder.p3d";
+        model="__.p3d";
     };
 };
