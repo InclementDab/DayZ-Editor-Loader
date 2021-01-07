@@ -29,21 +29,22 @@ class EditorLoaderModule: JMModuleBase
 		EditorLoaderLog(string.Format("Loaded %1 World Objects into cache", WorldObjects.Count()));
 	}
 
-	void EditorLoaderCreateBuilding(string type, vector position, vector orientation)
+	void EditorLoaderCreateBuilding(EditorObjectDataImport editor_object)
 	{
-		EditorLoaderLog(string.Format("Creating %1", type));
+		EditorLoaderLog(string.Format("Creating %1", editor_object.Type));
 		// This will cause.... issues (Might remove in the future for Trader mod?)
-		if (GetGame().IsKindOf(type, "Man") || GetGame().IsKindOf(type, "DZ_LightAI")) {
+		if (GetGame().IsKindOf(editor_object.Type, "Man") || GetGame().IsKindOf(editor_object.Type, "DZ_LightAI")) {
 			return;
 		}
 		
-	    Object obj = GetGame().CreateObjectEx(type, position, ECE_SETUP | ECE_UPDATEPATHGRAPH | ECE_CREATEPHYSICS);
+	    Object obj = GetGame().CreateObjectEx(editor_object.Type, editor_object.Position, ECE_SETUP | ECE_UPDATEPATHGRAPH | ECE_CREATEPHYSICS);
 		
 		if (!obj) {
 			return;
 		}
 		
-	    obj.SetOrientation(orientation);
+		//obj.SetScale(editor_object.Scale);
+	    obj.SetOrientation(editor_object.Orientation);
 	    obj.SetFlags(EntityFlags.STATIC, false);
 	    obj.Update();
 		obj.SetAffectPathgraph(true, false);
@@ -166,7 +167,7 @@ class EditorLoaderModule: JMModuleBase
 				}
 				
 				foreach (EditorObjectDataImport editor_object: editor_data.EditorObjects) {
-					EditorLoaderCreateBuilding(editor_object.Type, editor_object.Position, editor_object.Orientation);
+					EditorLoaderCreateBuilding(editor_object);
 				}
 			}
 	
