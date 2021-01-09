@@ -158,7 +158,7 @@ class EditorLoaderModule: JMModuleBase
 		
 		array<Object> objects = {};
 		array<CargoBase> cargos = {};
-		GetGame().GetObjectsAtPosition(m_EditorWorldCache[id], 1, objects, cargos);
+		GetGame().GetObjectsAtPosition3D(m_EditorWorldCache[id], 1, objects, cargos);
 		
 		foreach (Object object: objects) {
 			if (object.GetID() == id) {
