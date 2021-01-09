@@ -46,6 +46,11 @@ class EditorLoaderModule: JMModuleBase
 	// Worlds slowest method :)
 	void EditorLoaderDeleteBuildings(array<int> id_list)
 	{
+		if (id_list.Count() == 0) {
+			EditorLoaderLog("No deleted buildings found, skipping...");
+			return;
+		}
+		
 		EditorLoaderLog("Loading World Objects into cache...");
 		
 		map<int, Object> world_objects = new map<int, Object>();
