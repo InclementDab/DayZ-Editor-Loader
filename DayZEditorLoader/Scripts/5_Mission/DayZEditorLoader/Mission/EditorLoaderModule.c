@@ -17,6 +17,7 @@ class EditorLoaderModule: JMModuleBase
 	{
 		delete m_WorldDataImports;
 		delete m_WorldDeletedBuildings;
+		delete m_EditorWorldCache;
 	}
 
 	bool CreateLoaderCache(string file_name)
