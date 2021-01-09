@@ -137,6 +137,8 @@ class EditorLoaderModule: JMModuleBase
 				
 			CF_ObjectManager.HideMapObject(object);
 		}
+		
+		delete m_EditorWorldCache;
 	}
 	
 	Object GetBuildingFromID(int id)
