@@ -6,6 +6,8 @@ class EditorLoaderModule: JMModuleBase
 	
 	protected ref EditorWorldCache m_EditorWorldCache;
 	protected ref array<ref EditorWorldDataImport> m_WorldDataImports = {};
+	
+	protected ref array<ref EditorObjectDataImport> m_WorldCreatedBuildings = {};
 	protected ref array<int> m_WorldDeletedBuildings = {};
 	
 	void EditorLoaderModule()
@@ -77,28 +79,30 @@ class EditorLoaderModule: JMModuleBase
 		return string.Format("$profile:/EditorFiles/%1.cache", world_name);
 	}
 	
-	void EditorLoaderCreateBuilding(EditorObjectDataImport editor_object)
+	void EditorLoaderCreateBuildings(array<ref EditorObjectDataImport> editor_objects)
 	{
-		EditorLoaderLog(string.Format("Creating %1", editor_object.Type));
-		
-		// This will cause.... issues (Might remove in the future for Trader mod?)
-		if (GetGame().IsKindOf(editor_object.Type, "Man") || GetGame().IsKindOf(editor_object.Type, "DZ_LightAI")) {
-			return;
-		}
-		
-	    Object obj = GetGame().CreateObjectEx(editor_object.Type, editor_object.Position, ECE_SETUP | ECE_UPDATEPATHGRAPH | ECE_CREATEPHYSICS);
-		
-		if (!obj) {
-			return;
-		}
-		
-		//obj.SetScale(editor_object.Scale);
-	    obj.SetOrientation(editor_object.Orientation);
-	    obj.SetFlags(EntityFlags.STATIC, false);
-	    obj.Update();
-		obj.SetAffectPathgraph(true, false);
-		if (obj.CanAffectPathgraph()) { 
-			GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(GetGame().UpdatePathgraphRegionByObject, 100, false, obj);
+		EditorLoaderLog(string.Format("Creating %1 buildings", editor_objects.Count()));
+		foreach (EditorObjectDataImport editor_object: editor_objects) {
+			
+			// This will cause.... issues (Might remove in the future for Trader mod?)
+			if (GetGame().IsKindOf(editor_object.Type, "Man") || GetGame().IsKindOf(editor_object.Type, "DZ_LightAI")) {
+				continue;
+			}
+			
+		    Object obj = GetGame().CreateObjectEx(editor_object.Type, editor_object.Position, ECE_SETUP | ECE_UPDATEPATHGRAPH | ECE_CREATEPHYSICS);
+
+			if (!obj) {
+				continue;
+			}
+			
+			//obj.SetScale(editor_object.Scale);
+		    obj.SetOrientation(editor_object.Orientation);
+		    obj.SetFlags(EntityFlags.STATIC, false);
+		    obj.Update();
+			obj.SetAffectPathgraph(true, false);
+			if (obj.CanAffectPathgraph()) { 
+				GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(GetGame().UpdatePathgraphRegionByObject, 100, false, obj);
+			}
 		}
 	}
 
@@ -240,11 +244,12 @@ class EditorLoaderModule: JMModuleBase
 				}
 				
 				foreach (EditorObjectDataImport editor_object: editor_data.EditorObjects) {
-					EditorLoaderCreateBuilding(editor_object);
+					m_WorldCreatedBuildings.Insert(editor_object);
 				}
 			}
 			
 			EditorLoaderDeleteBuildings(m_WorldDeletedBuildings);
+			EditorLoaderCreateBuildings(m_WorldCreatedBuildings);
 			
 			// Runs thread that watches for EditorLoaderModule.ExportLootData = true;
 			thread ExportLootData();
