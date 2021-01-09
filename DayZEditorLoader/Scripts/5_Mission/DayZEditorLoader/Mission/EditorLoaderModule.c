@@ -4,6 +4,7 @@ class EditorLoaderModule: JMModuleBase
 {
 	static bool ExportLootData = false;	
 	
+	protected ref EditorWorldCache m_EditorWorldCache;
 	protected ref array<ref EditorWorldDataImport> m_WorldDataImports = {};
 	protected ref array<int> m_WorldDeletedBuildings = {};
 	
@@ -18,6 +19,63 @@ class EditorLoaderModule: JMModuleBase
 		delete m_WorldDeletedBuildings;
 	}
 
+	bool CreateLoaderCache(string file_name)
+	{
+		// Adds all map objects to the WorldObjects array
+		EditorWorldCache world_cache = new EditorWorldCache();
+		array<Object> objects = {};
+		array<CargoBase> cargos = {};
+		GetGame().GetObjectsAtPosition(vector.Zero, 100000, objects, cargos);
+		
+		foreach (Object o: objects) {
+			world_cache.Insert(o.GetID(), o.GetPosition());
+		}
+		
+		FileSerializer serializer = new FileSerializer();
+		if (!serializer.Open(file_name, FileMode.WRITE)) {
+			Error("EditorLoader: Error Opening Cache");
+			return false;
+		}
+		
+		if (!serializer.Write(world_cache)) {
+			Error("EditorLoader: Error Writing Cache");
+			return false;
+		}
+		
+		serializer.Close();
+		
+		return FileExist(file_name);
+	}
+	
+	EditorWorldCache LoadLoaderCache(string file_name)
+	{
+		EditorWorldCache world_cache = new EditorWorldCache();
+
+		FileSerializer serializer = new FileSerializer();
+		if (!serializer.Open(file_name)) {
+			Error("EditorLoader: Error Opening Cache");
+			return null;
+		}
+		
+		if (!serializer.Read(world_cache)) {
+			Error("EditorLoader: Error Reading Cache");
+			return null;
+		}
+		
+		serializer.Close();
+		
+		return world_cache;
+	}
+	
+	string GetCacheFileName()
+	{
+		string world_name;
+		GetGame().GetWorldName(world_name);
+		world_name.ToLower();
+		
+		return string.Format("$profile:/EditorFiles/%1.cache", world_name);
+	}
+	
 	void EditorLoaderCreateBuilding(EditorObjectDataImport editor_object)
 	{
 		EditorLoaderLog(string.Format("Creating %1", editor_object.Type));
@@ -50,29 +108,65 @@ class EditorLoaderModule: JMModuleBase
 			EditorLoaderLog("No deleted buildings found, skipping...");
 			return;
 		}
-		
-		EditorLoaderLog("Loading World Objects into cache...");
-		
-		map<int, Object> world_objects = new map<int, Object>();
-		// Adds all map objects to the WorldObjects array
-		ref array<Object> objects = {};
-		ref array<CargoBase> cargos = {};
-		GetGame().GetObjectsAtPosition(vector.Zero, 100000, objects, cargos);
-
-		foreach (Object o: objects) {
-			world_objects.Insert(o.GetID(), o);
-		}
-		
-		EditorLoaderLog(string.Format("Loaded %1 World Objects into cache", world_objects.Count()));
-		
+				
+		map<int, Object> backup_world_objects;
 		EditorLoaderLog(string.Format("Deleting %1 buildings", id_list.Count()));
 		foreach (int id: id_list) {
-			if (world_objects[id]) {
-				CF_ObjectManager.HideMapObject(world_objects[id]);
+			Object object = GetBuildingFromID(id);
+			if (!object) {
+				EditorLoaderLog("Reverting to old method of grabbing buildings. Hold on tight...");	
+				
+				if (!backup_world_objects) {
+					backup_world_objects = new map<int, Object>();
+					EditorLoaderLog("Loading World Objects into cache...");
+		
+					// Adds all map objects to the WorldObjects array
+					array<Object> objects = {};
+					array<CargoBase> cargos = {};
+					GetGame().GetObjectsAtPosition(vector.Zero, 100000, objects, cargos);
+			
+					foreach (Object o: objects) {
+						backup_world_objects.Insert(o.GetID(), o);
+					}
+					
+					EditorLoaderLog(string.Format("Loaded %1 World Objects into emergency cache", backup_world_objects.Count()));
+				}
+				
+				object = backup_world_objects[id];
+			} 
+				
+			CF_ObjectManager.HideMapObject(object);
+		}
+	}
+	
+	Object GetBuildingFromID(int id)
+	{
+		if (!m_EditorWorldCache) {
+			m_EditorWorldCache = new EditorWorldCache();
+			
+			string cache_file = GetCacheFileName();
+			if (!FileExist(cache_file)) {
+				EditorLoaderLog("Cache file not found... creating (this may take a few minutes)");
+				if (!CreateLoaderCache(cache_file)) {
+					Error("Cache file creation failed");
+					return null;
+				}
+			}
+			
+			m_EditorWorldCache = LoadLoaderCache(cache_file);
+		}
+		
+		array<Object> objects = {};
+		array<CargoBase> cargos = {};
+		GetGame().GetObjectsAtPosition(m_EditorWorldCache[id], 1, objects, cargos);
+		
+		foreach (Object object: objects) {
+			if (object.GetID() == id) {
+				return object;
 			}
 		}
 		
-		delete world_objects;
+		return null;
 	}
 		
 	void EditorLoaderRemoteDeleteBuilding(CallType type, ref ParamsReadContext ctx, ref PlayerIdentity sender, ref Object target)
