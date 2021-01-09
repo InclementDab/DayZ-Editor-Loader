@@ -3,35 +3,25 @@ typedef array<int> DeletedBuildingsPacket;
 class EditorLoaderModule: JMModuleBase
 {
 	static bool ExportLootData = false;	
-		
-	static ref map<int, ref OLinkT> WorldObjects;
+	
 	protected ref array<ref EditorWorldDataImport> m_WorldDataImports = {};
+	protected ref array<int> m_WorldDeletedBuildings = {};
 	
 	void EditorLoaderModule()
 	{
 		GetRPCManager().AddRPC("EditorLoaderModule", "EditorLoaderRemoteDeleteBuilding", this);
 	}
 	
-	static void LoadMapObjects()
+	void ~EditorLoaderModule()
 	{
-		WorldObjects = new map<int, ref OLinkT>();
-		EditorLoaderLog("Loading World Objects into cache...");
-				
-		// Adds all map objects to the WorldObjects array
-		ref array<Object> objects = {};
-		ref array<CargoBase> cargos = {};
-		GetGame().GetObjectsAtPosition(vector.Zero, 100000, objects, cargos);
-
-		foreach (Object o: objects) {
-			WorldObjects.Insert(o.GetID(), new OLinkT(o));
-		}
-		
-		EditorLoaderLog(string.Format("Loaded %1 World Objects into cache", WorldObjects.Count()));
+		delete m_WorldDataImports;
+		delete m_WorldDeletedBuildings;
 	}
 
 	void EditorLoaderCreateBuilding(EditorObjectDataImport editor_object)
 	{
 		EditorLoaderLog(string.Format("Creating %1", editor_object.Type));
+		
 		// This will cause.... issues (Might remove in the future for Trader mod?)
 		if (GetGame().IsKindOf(editor_object.Type, "Man") || GetGame().IsKindOf(editor_object.Type, "DZ_LightAI")) {
 			return;
@@ -52,57 +42,32 @@ class EditorLoaderModule: JMModuleBase
 			GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(GetGame().UpdatePathgraphRegionByObject, 100, false, obj);
 		}
 	}
-	
-	void EditorLoaderDeleteBuildings(DeletedBuildingsPacket packet, bool clear_cache = false)
-	{	
-		if (!WorldObjects) {
-			LoadMapObjects();
-		}
-		
-		//EditorLoaderLog(string.Format("Deleting %1", id));
-		
-		foreach (int id: packet) {
-			if (WorldObjects[id]) {
-				CF_ObjectManager.HideMapObject(WorldObjects[id].Ptr());
-			}
-		}
-		
-		
-		if (clear_cache) {
-			EditorLoaderLog("Clearing Cache...");
-			if (WorldObjects) {
-				for (int i = 0; i < WorldObjects.Count(); i++) {
-					delete WorldObjects[i];
-				}
-				
-				delete WorldObjects;	
-			}
-		}
-	}
-	
-	void EditorLoaderDeleteBuilding(int id, bool clear_cache = false)
+
+	// Worlds slowest method :)
+	void EditorLoaderDeleteBuildings(array<int> id_list)
 	{
-		if (!WorldObjects) {
-			LoadMapObjects();
+		EditorLoaderLog("Loading World Objects into cache...");
+		
+		map<int, Object> world_objects = new map<int, Object>();
+		// Adds all map objects to the WorldObjects array
+		ref array<Object> objects = {};
+		ref array<CargoBase> cargos = {};
+		GetGame().GetObjectsAtPosition(vector.Zero, 100000, objects, cargos);
+
+		foreach (Object o: objects) {
+			world_objects.Insert(o.GetID(), o);
 		}
 		
-		//EditorLoaderLog(string.Format("Deleting %1", id));
+		EditorLoaderLog(string.Format("Loaded %1 World Objects into cache", world_objects.Count()));
 		
-		if (WorldObjects[id]) {
-			CF_ObjectManager.HideMapObject(WorldObjects[id].Ptr());
-		}
-		
-		
-		if (clear_cache) {
-			EditorLoaderLog("Clearing Cache...");
-			if (WorldObjects) {
-				for (int i = 0; i < WorldObjects.Count(); i++) {
-					delete WorldObjects[i];
-				}
-				
-				delete WorldObjects;	
+		EditorLoaderLog(string.Format("Deleting %1 buildings", id_list.Count()));
+		foreach (int id: id_list) {
+			if (world_objects[id]) {
+				CF_ObjectManager.HideMapObject(world_objects[id]);
 			}
 		}
+		
+		delete world_objects;
 	}
 		
 	void EditorLoaderRemoteDeleteBuilding(CallType type, ref ParamsReadContext ctx, ref PlayerIdentity sender, ref Object target)
@@ -113,7 +78,13 @@ class EditorLoaderModule: JMModuleBase
 		}
 		
 		DeletedBuildingsPacket packet = delete_params.param1;		
-		EditorLoaderDeleteBuildings(packet, delete_params.param2);
+		foreach (int id: packet) {
+			m_WorldDeletedBuildings.Insert(id);
+		}
+		
+		if (delete_params.param2) {
+			EditorLoaderDeleteBuildings(m_WorldDeletedBuildings);
+		}
 	}	
 
 
@@ -163,23 +134,15 @@ class EditorLoaderModule: JMModuleBase
 				EditorLoaderLog(string.Format("%1 deleted objects found", editor_data.DeletedObjects.Count()));
 				
 				foreach (int deleted_object: editor_data.DeletedObjects) {
-					EditorLoaderDeleteBuilding(deleted_object);
+					m_WorldDeletedBuildings.Insert(deleted_object);
 				}
 				
 				foreach (EditorObjectDataImport editor_object: editor_data.EditorObjects) {
 					EditorLoaderCreateBuilding(editor_object);
 				}
 			}
-	
-			// Maybe having a massive map this big is hurting clients :)
-			// Server side only
-			if (WorldObjects) {
-				for (int i = 0; i < WorldObjects.Count(); i++) {
-					delete WorldObjects[i];
-				}
-				
-				delete WorldObjects;	
-			}
+			
+			EditorLoaderDeleteBuildings(m_WorldDeletedBuildings);
 			
 			// Runs thread that watches for EditorLoaderModule.ExportLootData = true;
 			thread ExportLootData();
@@ -225,6 +188,8 @@ class EditorLoaderModule: JMModuleBase
 			}
 		}
 		
+		
+		// Find fullproof way to never send this if no buildings
 		GetRPCManager().SendRPC("EditorLoaderModule", "EditorLoaderRemoteDeleteBuilding", new Param2<ref DeletedBuildingsPacket, bool>(deleted_packets, true), true, identity);
 	}
 	
