@@ -13,7 +13,7 @@ class ObjectRemoverBase: BuildingSuper
 	}
 	
 	private void HideObjects()
-	{
+	{		
 		m_HiddenMapObjects = CF.ObjectManager.HideMapObjectsInRadius(GetPosition(), GetRadius());
 	}
 	
