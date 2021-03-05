@@ -76,7 +76,7 @@ class EditorLoaderModule: JMModuleBase
 		GetGame().GetWorldName(world_name);
 		world_name.ToLower();
 		
-		return string.Format("$profile:/EditorFiles/%1.cache", world_name);
+		return string.Format("$profile:%1.cache", world_name);
 	}
 	
 	void EditorLoaderCreateBuildings(array<ref EditorObjectDataImport> editor_objects)
@@ -118,10 +118,9 @@ class EditorLoaderModule: JMModuleBase
 		EditorLoaderLog(string.Format("Deleting %1 buildings", id_list.Count()));
 		foreach (int id: id_list) {
 			Object object = GetBuildingFromID(id);
-			if (!object) {
-				EditorLoaderLog("Reverting to old method of grabbing buildings. Hold on tight...");	
-				
+			if (!object) {				
 				if (!backup_world_objects) {
+					EditorLoaderLog("Reverting to old method of grabbing buildings. Hold on tight...");	
 					backup_world_objects = new map<int, Object>();
 					EditorLoaderLog("Loading World Objects into cache...");
 		
@@ -200,13 +199,11 @@ class EditorLoaderModule: JMModuleBase
 		
 		// Everything below this line is the Server side syncronization :)
 		if (IsMissionHost()) {
-			if (!FileExist("$profile:/EditorFiles")) {
-				EditorLoaderLog("EditorFiles directory not found, creating...");
-				if (!MakeDirectory("$profile:/EditorFiles")) {
-					EditorLoaderLog("Could not create EditorFiles directory. Exiting...");
-					return;
-				}
+			if (!MakeDirectory("$profile:EditorFiles")) {
+				EditorLoaderLog("Could not create EditorFiles directory. Exiting...");
+				return;
 			}
+			
 	
 			TStringArray files = {};
 			string file_name;
@@ -221,17 +218,29 @@ class EditorLoaderModule: JMModuleBase
 			
 			CloseFindFile(find_handle);
 	
+			string world_name;
+			GetGame().GetWorldName(world_name);
+			world_name.ToLower();
+			
 			foreach (string file: files) {
 				EditorLoaderLog("File found: " + file);
 				EditorWorldDataImport data_import;
 				JsonFileLoader<EditorWorldDataImport>.JsonLoadFile("$profile:/EditorFiles/" + file, data_import);
 				
-				if (data_import) {
-					m_WorldDataImports.Insert(data_import);
-					EditorLoaderLog("Loaded $profile:/EditorFiles/" + file);
+				if (!data_import) {
+					Error("Data was invalid");
+					continue;
 				}
+				
+				data_import.MapName.ToLower();
+				if (data_import.MapName != world_name) {
+					Error("Wrong world loaded, current is " + world_name + ", file is made for " + data_import.MapName);
+					continue;
+				}
+				
+				m_WorldDataImports.Insert(data_import);
+				EditorLoaderLog("Loaded $profile:/EditorFiles/" + file);
 			}
-			
 			
 			// Create and Delete buildings on Server Side
 			foreach (EditorWorldDataImport editor_data: m_WorldDataImports) {
