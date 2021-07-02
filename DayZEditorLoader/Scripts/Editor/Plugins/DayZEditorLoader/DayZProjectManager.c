@@ -2,7 +2,6 @@
 [WorkbenchPluginAttribute("Edit Project", "Edit Project", "", "", {"ResourceManager", "ScriptEditor"})]
 class DayZProjectManager: DayZTool
 {
-	[Attribute("", "editbox")]
 	string ModName = "DayZEditorLoader";
 		
 	override void Run()
