@@ -99,10 +99,6 @@ class EditorLoaderModule: JMModuleBase
 		    obj.SetOrientation(editor_object.Orientation);
 		    obj.SetFlags(EntityFlags.STATIC, false);
 		    obj.Update();
-			obj.SetAffectPathgraph(true, false);
-			if (obj.CanAffectPathgraph()) { 
-				GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(GetGame().UpdatePathgraphRegionByObject, 100, false, obj);
-			}
 		}
 	}
 
