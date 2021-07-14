@@ -1,14 +1,13 @@
-typedef array<int> DeletedBuildingsPacket;
+typedef array<ref EditorDeletedObjectDataImport> DeletedBuildingsPacket;
 
 class EditorLoaderModule: JMModuleBase
 {
 	static bool ExportLootData = false;	
 	
-	protected ref EditorWorldCache m_EditorWorldCache;
 	protected ref array<ref EditorWorldDataImport> m_WorldDataImports = {};
 	
 	protected ref array<ref EditorObjectDataImport> m_WorldCreatedBuildings = {};
-	protected ref array<int> m_WorldDeletedBuildings = {};
+	protected ref array<ref EditorDeletedObjectDataImport> m_WorldDeletedBuildings = {};
 	
 	void EditorLoaderModule()
 	{
@@ -19,66 +18,8 @@ class EditorLoaderModule: JMModuleBase
 	{
 		delete m_WorldDataImports;
 		delete m_WorldDeletedBuildings;
-		delete m_EditorWorldCache;
 	}
-
-	bool CreateLoaderCache(string file_name)
-	{
-		// Adds all map objects to the WorldObjects array
-		EditorWorldCache world_cache = new EditorWorldCache();
-		array<Object> objects = {};
-		array<CargoBase> cargos = {};
-		GetGame().GetObjectsAtPosition(vector.Zero, 100000, objects, cargos);
 		
-		foreach (Object o: objects) {
-			world_cache.Insert(o.GetID(), o.GetPosition());
-		}
-		
-		FileSerializer serializer = new FileSerializer();
-		if (!serializer.Open(file_name, FileMode.WRITE)) {
-			Error("EditorLoader: Error Opening Cache");
-			return false;
-		}
-		
-		if (!serializer.Write(world_cache)) {
-			Error("EditorLoader: Error Writing Cache");
-			return false;
-		}
-		
-		serializer.Close();
-		
-		return FileExist(file_name);
-	}
-	
-	EditorWorldCache LoadLoaderCache(string file_name)
-	{
-		EditorWorldCache world_cache = new EditorWorldCache();
-
-		FileSerializer serializer = new FileSerializer();
-		if (!serializer.Open(file_name)) {
-			Error("EditorLoader: Error Opening Cache");
-			return null;
-		}
-		
-		if (!serializer.Read(world_cache)) {
-			Error("EditorLoader: Error Reading Cache");
-			return null;
-		}
-		
-		serializer.Close();
-		
-		return world_cache;
-	}
-	
-	string GetCacheFileName()
-	{
-		string world_name;
-		GetGame().GetWorldName(world_name);
-		world_name.ToLower();
-		
-		return string.Format("$profile:%1.cache", world_name);
-	}
-	
 	void EditorLoaderCreateBuildings(array<ref EditorObjectDataImport> editor_objects)
 	{
 		EditorLoaderLog(string.Format("Creating %1 buildings", editor_objects.Count()));
@@ -102,75 +43,19 @@ class EditorLoaderModule: JMModuleBase
 		}
 	}
 
-	// Worlds slowest method :)
-	void EditorLoaderDeleteBuildings(array<int> id_list)
+	void EditorLoaderDeleteBuildings(array<ref EditorDeletedObjectDataImport> building_list)
 	{
-		if (id_list.Count() == 0) {
+		if (building_list.Count() == 0) {
 			EditorLoaderLog("No deleted buildings found, skipping...");
 			return;
 		}
-				
-		map<int, Object> backup_world_objects;
-		EditorLoaderLog(string.Format("Deleting %1 buildings", id_list.Count()));
-		foreach (int id: id_list) {
-			Object object = GetBuildingFromID(id);
-			if (!object) {				
-				if (!backup_world_objects) {
-					EditorLoaderLog("Reverting to old method of grabbing buildings. Hold on tight...");	
-					backup_world_objects = new map<int, Object>();
-					EditorLoaderLog("Loading World Objects into cache...");
 		
-					// Adds all map objects to the WorldObjects array
-					array<Object> objects = {};
-					array<CargoBase> cargos = {};
-					GetGame().GetObjectsAtPosition(vector.Zero, 100000, objects, cargos);
-			
-					foreach (Object o: objects) {
-						backup_world_objects.Insert(o.GetID(), o);
-					}
-					
-					EditorLoaderLog(string.Format("Loaded %1 World Objects into emergency cache", backup_world_objects.Count()));
-				}
-				
-				object = backup_world_objects[id];
-			} 
-				
-			CF_ObjectManager.HideMapObject(object);
+		EditorLoaderLog(string.Format("Deleting %1 buildings", building_list.Count()));
+		foreach (EditorDeletedObjectDataImport deleted_building: building_list) {				
+			CF_ObjectManager.HideMapObject(deleted_building.FindObject());
 		}
-		
-		delete m_EditorWorldCache;
 	}
-	
-	Object GetBuildingFromID(int id)
-	{
-		if (!m_EditorWorldCache) {
-			m_EditorWorldCache = new EditorWorldCache();
 			
-			string cache_file = GetCacheFileName();
-			if (!FileExist(cache_file)) {
-				EditorLoaderLog("Cache file not found... creating (this may take a few minutes)");
-				if (!CreateLoaderCache(cache_file)) {
-					Error("Cache file creation failed");
-					return null;
-				}
-			}
-			
-			m_EditorWorldCache = LoadLoaderCache(cache_file);
-		}
-		
-		array<Object> objects = {};
-		array<CargoBase> cargos = {};
-		GetGame().GetObjectsAtPosition3D(m_EditorWorldCache[id], 1, objects, cargos);
-		
-		foreach (Object object: objects) {
-			if (object.GetID() == id) {
-				return object;
-			}
-		}
-		
-		return null;
-	}
-		
 	void EditorLoaderRemoteDeleteBuilding(CallType type, ref ParamsReadContext ctx, ref PlayerIdentity sender, ref Object target)
 	{
 		Param2<ref DeletedBuildingsPacket, bool> delete_params(new DeletedBuildingsPacket(), false);
@@ -179,8 +64,8 @@ class EditorLoaderModule: JMModuleBase
 		}
 		
 		DeletedBuildingsPacket packet = delete_params.param1;		
-		foreach (int id: packet) {
-			m_WorldDeletedBuildings.Insert(id);
+		foreach (EditorDeletedObjectDataImport deleted_building: packet) {
+			m_WorldDeletedBuildings.Insert(deleted_building);
 		}
 		
 		if (delete_params.param2) {
@@ -231,7 +116,7 @@ class EditorLoaderModule: JMModuleBase
 				data_import.MapName.ToLower();
 				if (data_import.MapName != world_name) {
 					Error("Wrong world loaded, current is " + world_name + ", file is made for " + data_import.MapName);
-					continue;
+					//continue;
 				}
 				
 				m_WorldDataImports.Insert(data_import);
@@ -242,9 +127,9 @@ class EditorLoaderModule: JMModuleBase
 			foreach (EditorWorldDataImport editor_data: m_WorldDataImports) {
 				
 				EditorLoaderLog(string.Format("%1 created objects found", editor_data.EditorObjects.Count()));
-				EditorLoaderLog(string.Format("%1 deleted objects found", editor_data.DeletedObjects.Count()));
+				EditorLoaderLog(string.Format("%1 deleted objects found", editor_data.EditorDeletedObjects.Count()));
 				
-				foreach (int deleted_object: editor_data.DeletedObjects) {
+				foreach (EditorDeletedObjectDataImport deleted_object: editor_data.EditorDeletedObjects) {
 					m_WorldDeletedBuildings.Insert(deleted_object);
 				}
 				
@@ -264,13 +149,12 @@ class EditorLoaderModule: JMModuleBase
 	protected ref array<string> m_LoadedPlayers = {};
 	override void OnInvokeConnect(PlayerBase player, PlayerIdentity identity)
 	{		
-		
 		string id = String(identity.GetId());
 		
 		EditorLoaderLog("OnInvokeConnect");
 		if (GetGame().IsServer() && (m_LoadedPlayers.Find(id) == -1)) {
 			m_LoadedPlayers.Insert(id);
-			thread SendClientData(identity);
+			SendClientData(identity);
 		}
 	}
 		
@@ -287,19 +171,18 @@ class EditorLoaderModule: JMModuleBase
 		
 		// Delete buildings on client side
 		for (int i = 0; i < m_WorldDataImports.Count(); i++) {
-			for (int j = 0; j < m_WorldDataImports[i].DeletedObjects.Count(); j++) {
+			for (int j = 0; j < m_WorldDataImports[i].EditorDeletedObjects.Count(); j++) {
 				// Signals that its the final deletion in the final file
-				bool finished = (i == m_WorldDataImports.Count() - 1 && j == m_WorldDataImports[i].DeletedObjects.Count() - 1);
-				deleted_packets.Insert(m_WorldDataImports[i].DeletedObjects[j]);
+				bool finished = (i == m_WorldDataImports.Count() - 1 && j == m_WorldDataImports[i].EditorDeletedObjects.Count() - 1);
+				deleted_packets.Insert(m_WorldDataImports[i].EditorDeletedObjects[j]);
 				
-				// Send in packages of 50
-				if (deleted_packets.Count() >= 50) {
+				// Send in packages of 100
+				if (deleted_packets.Count() >= 100) {
 					GetRPCManager().SendRPC("EditorLoaderModule", "EditorLoaderRemoteDeleteBuilding", new Param2<ref DeletedBuildingsPacket, bool>(deleted_packets, false), true, identity);
 					deleted_packets.Clear();
 				}				
 			}
 		}
-		
 		
 		// Find fullproof way to never send this if no buildings
 		GetRPCManager().SendRPC("EditorLoaderModule", "EditorLoaderRemoteDeleteBuilding", new Param2<ref DeletedBuildingsPacket, bool>(deleted_packets, true), true, identity);
