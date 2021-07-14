@@ -51,7 +51,7 @@ class EditorLoaderModule: JMModuleBase
 		}
 		
 		EditorLoaderLog(string.Format("Deleting %1 buildings", building_list.Count()));
-		foreach (EditorDeletedObjectData deleted_building: building_list) {				
+		foreach (EditorDeletedObjectData deleted_building: building_list) {	
 			CF_ObjectManager.HideMapObject(deleted_building.FindObject());
 		}
 	}
@@ -117,21 +117,13 @@ class EditorLoaderModule: JMModuleBase
 					continue;
 				}
 				
-				data_import = new EditorSaveData();
-				data_import.Read(serializer);
-				
-				/*if (!serializer.Read(data_import)) {
+				data_import = new EditorSaveData();				
+				if (!data_import.Read(serializer)) {
 					Error("Failed to read file " + bin_file);
 					serializer.Close();
 					continue;
-				}*/
-				
-				Print(data_import);
-				Print(data_import.MapName);
-				Print(data_import.CameraPosition);
-				Print(data_import.EditorObjects.Count());
-				//Print(data_import.EditorDeletedObjects.Count());
-				
+				}
+								
 				serializer.Close();
 				m_WorldDataImports.Insert(data_import);
 				EditorLoaderLog("Loaded $profile:/EditorFiles/" + bin_file);
@@ -160,9 +152,7 @@ class EditorLoaderModule: JMModuleBase
 				m_WorldDataImports.Insert(data_import);
 				EditorLoaderLog("Loaded $profile:/EditorFiles/" + file);
 			}
-			
-
-			
+						
 			// Create and Delete buildings on Server Side
 			foreach (EditorSaveData editor_data: m_WorldDataImports) {
 				
