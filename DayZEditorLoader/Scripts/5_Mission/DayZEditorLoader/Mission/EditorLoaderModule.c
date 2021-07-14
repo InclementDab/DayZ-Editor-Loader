@@ -1,13 +1,12 @@
-typedef array<ref EditorDeletedObjectDataImport> DeletedBuildingsPacket;
+typedef array<ref EditorDeletedObjectData> DeletedBuildingsPacket;
 
 class EditorLoaderModule: JMModuleBase
 {
 	static bool ExportLootData = false;	
 	
-	protected ref array<ref EditorWorldDataImport> m_WorldDataImports = {};
-	
-	protected ref array<ref EditorObjectDataImport> m_WorldCreatedBuildings = {};
-	protected ref array<ref EditorDeletedObjectDataImport> m_WorldDeletedBuildings = {};
+	protected ref array<ref EditorSaveData> m_WorldDataImports = {};
+	protected ref array<ref EditorObjectData> m_WorldCreatedBuildings = {};
+	protected ref array<ref EditorDeletedObjectData> m_WorldDeletedBuildings = {};
 	
 	void EditorLoaderModule()
 	{
@@ -17,13 +16,14 @@ class EditorLoaderModule: JMModuleBase
 	void ~EditorLoaderModule()
 	{
 		delete m_WorldDataImports;
+		delete m_WorldCreatedBuildings;
 		delete m_WorldDeletedBuildings;
 	}
 		
-	void EditorLoaderCreateBuildings(array<ref EditorObjectDataImport> editor_objects)
+	void EditorLoaderCreateBuildings(array<ref EditorObjectData> editor_objects)
 	{
 		EditorLoaderLog(string.Format("Creating %1 buildings", editor_objects.Count()));
-		foreach (EditorObjectDataImport editor_object: editor_objects) {
+		foreach (EditorObjectData editor_object: editor_objects) {
 			
 			// This will cause.... issues (Might remove in the future for Trader mod?)
 			if (GetGame().IsKindOf(editor_object.Type, "Man") || GetGame().IsKindOf(editor_object.Type, "DZ_LightAI")) {
@@ -43,7 +43,7 @@ class EditorLoaderModule: JMModuleBase
 		}
 	}
 
-	void EditorLoaderDeleteBuildings(array<ref EditorDeletedObjectDataImport> building_list)
+	void EditorLoaderDeleteBuildings(array<ref EditorDeletedObjectData> building_list)
 	{
 		if (building_list.Count() == 0) {
 			EditorLoaderLog("No deleted buildings found, skipping...");
@@ -51,7 +51,7 @@ class EditorLoaderModule: JMModuleBase
 		}
 		
 		EditorLoaderLog(string.Format("Deleting %1 buildings", building_list.Count()));
-		foreach (EditorDeletedObjectDataImport deleted_building: building_list) {				
+		foreach (EditorDeletedObjectData deleted_building: building_list) {				
 			CF_ObjectManager.HideMapObject(deleted_building.FindObject());
 		}
 	}
@@ -64,7 +64,7 @@ class EditorLoaderModule: JMModuleBase
 		}
 		
 		DeletedBuildingsPacket packet = delete_params.param1;		
-		foreach (EditorDeletedObjectDataImport deleted_building: packet) {
+		foreach (EditorDeletedObjectData deleted_building: packet) {
 			m_WorldDeletedBuildings.Insert(deleted_building);
 		}
 		
@@ -73,6 +73,23 @@ class EditorLoaderModule: JMModuleBase
 		}
 	}	
 
+	TStringArray FindFiles(string extension = ".dze")
+	{
+		TStringArray files = {};
+		string file_name;
+		FileAttr file_attr;
+		
+		FindFileHandle find_handle = FindFile(string.Format("$profile:/EditorFiles/*%1", extension), file_name, file_attr, FindFileFlags.ALL);
+		files.Insert(file_name);
+		
+		while (FindNextFile(find_handle, file_name, file_attr)) {
+			files.Insert(file_name);
+		}
+		
+		CloseFindFile(find_handle);
+		
+		return files;
+	}
 
 	override void OnMissionStart()
 	{
@@ -84,38 +101,59 @@ class EditorLoaderModule: JMModuleBase
 				EditorLoaderLog("Could not create EditorFiles directory. Exiting...");
 				return;
 			}
-			
 	
-			TStringArray files = {};
-			string file_name;
-			FileAttr file_attr;
-			
-			FindFileHandle find_handle = FindFile("$profile:/EditorFiles/*.dze", file_name, file_attr, FindFileFlags.ALL);
-			files.Insert(file_name);
-			
-			while (FindNextFile(find_handle, file_name, file_attr)) {
-				files.Insert(file_name);
+			EditorSaveData data_import;				
+			TStringArray files = FindFiles("*.dzebin");
+			foreach (string bin_file: files) {
+				EditorLoaderLog("File found: " + bin_file);
+				FileSerializer serializer();
+				if (!serializer) {
+					Error("Failed to create FileSerializer");
+					continue;
+				}
+				
+				if (!serializer.Open("$profile:/EditorFiles/" + bin_file, FileMode.READ)) {
+					Error("Failed to open file " + bin_file);
+					continue;
+				}
+				
+				data_import = new EditorSaveData();
+				data_import.Read(serializer);
+				
+				/*if (!serializer.Read(data_import)) {
+					Error("Failed to read file " + bin_file);
+					serializer.Close();
+					continue;
+				}*/
+				
+				Print(data_import);
+				Print(data_import.MapName);
+				Print(data_import.CameraPosition);
+				Print(data_import.EditorObjects.Count());
+				//Print(data_import.EditorDeletedObjects.Count());
+				
+				serializer.Close();
+				m_WorldDataImports.Insert(data_import);
+				EditorLoaderLog("Loaded $profile:/EditorFiles/" + bin_file);
 			}
 			
-			CloseFindFile(find_handle);
-	
-			string world_name;
-			GetGame().GetWorldName(world_name);
-			world_name.ToLower();
-			
+			files = FindFiles("*.dze");
 			foreach (string file: files) {
-				EditorLoaderLog("File found: " + file);
-				EditorWorldDataImport data_import;
-				JsonFileLoader<EditorWorldDataImport>.JsonLoadFile("$profile:/EditorFiles/" + file, data_import);
+				file.ToLower();
+				if (file.Contains("dzebin")) {
+					continue;
+				}
 				
-				if (!data_import) {
+				EditorLoaderLog("File found: " + file);
+				JsonFileLoader<EditorSaveData>.JsonLoadFile("$profile:/EditorFiles/" + file, data_import);
+				if (!data_import) {					
 					Error("Data was invalid");
 					continue;
 				}
 				
 				data_import.MapName.ToLower();
-				if (data_import.MapName != world_name) {
-					Error("Wrong world loaded, current is " + world_name + ", file is made for " + data_import.MapName);
+				if (data_import.MapName != GetFormattedWorldName()) {
+					Error("Wrong world loaded, current is " + GetFormattedWorldName() + ", file is made for " + data_import.MapName);
 					//continue;
 				}
 				
@@ -123,17 +161,19 @@ class EditorLoaderModule: JMModuleBase
 				EditorLoaderLog("Loaded $profile:/EditorFiles/" + file);
 			}
 			
+
+			
 			// Create and Delete buildings on Server Side
-			foreach (EditorWorldDataImport editor_data: m_WorldDataImports) {
+			foreach (EditorSaveData editor_data: m_WorldDataImports) {
 				
 				EditorLoaderLog(string.Format("%1 created objects found", editor_data.EditorObjects.Count()));
 				EditorLoaderLog(string.Format("%1 deleted objects found", editor_data.EditorDeletedObjects.Count()));
 				
-				foreach (EditorDeletedObjectDataImport deleted_object: editor_data.EditorDeletedObjects) {
+				foreach (EditorDeletedObjectData deleted_object: editor_data.EditorDeletedObjects) {
 					m_WorldDeletedBuildings.Insert(deleted_object);
 				}
 				
-				foreach (EditorObjectDataImport editor_object: editor_data.EditorObjects) {
+				foreach (EditorObjectData editor_object: editor_data.EditorObjects) {
 					m_WorldCreatedBuildings.Insert(editor_object);
 				}
 			}
@@ -144,6 +184,14 @@ class EditorLoaderModule: JMModuleBase
 			// Runs thread that watches for EditorLoaderModule.ExportLootData = true;
 			thread ExportLootData();
 		}
+	}
+	
+	string GetFormattedWorldName()
+	{
+		string world_name;
+		GetGame().GetWorldName(world_name);
+		world_name.ToLower();
+		return world_name;
 	}
 	
 	protected ref array<string> m_LoadedPlayers = {};
@@ -187,7 +235,6 @@ class EditorLoaderModule: JMModuleBase
 		// Find fullproof way to never send this if no buildings
 		GetRPCManager().SendRPC("EditorLoaderModule", "EditorLoaderRemoteDeleteBuilding", new Param2<ref DeletedBuildingsPacket, bool>(deleted_packets, true), true, identity);
 	}
-	
 	
 	// Runs on both client AND server
 	override void OnMissionFinish()
