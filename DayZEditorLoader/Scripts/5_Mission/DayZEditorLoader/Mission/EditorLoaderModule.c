@@ -2,6 +2,7 @@ typedef array<ref EditorDeletedObjectData> DeletedBuildingsPacket;
 
 class EditorLoaderModule: JMModuleBase
 {
+	static const string RootDirectory = "$profile:/EditorFiles/";
 	static bool ExportLootData = false;	
 	
 	protected ref array<ref EditorSaveData> m_WorldDataImports = {};
@@ -35,7 +36,7 @@ class EditorLoaderModule: JMModuleBase
 		string file_name;
 		FileAttr file_attr;
 		
-		FindFileHandle find_handle = FindFile(string.Format("$profile:/EditorFiles/*%1", extension), file_name, file_attr, FindFileFlags.ALL);
+		FindFileHandle find_handle = FindFile(string.Format("%1*%2", RootDirectory, extension), file_name, file_attr, FindFileFlags.ALL);
 		files.Insert(file_name);
 		
 		while (FindNextFile(find_handle, file_name, file_attr)) {
@@ -103,7 +104,7 @@ class EditorLoaderModule: JMModuleBase
 			return;
 		}
 		
-		if (!MakeDirectory("$profile:EditorFiles")) {
+		if (!MakeDirectory(RootDirectory)) {
 			EditorLoaderLog("Could not create EditorFiles directory. Exiting...");
 			return;
 		}
@@ -116,10 +117,10 @@ class EditorLoaderModule: JMModuleBase
 			EditorLoaderLog("File found: " + file);
 			
 			EditorSaveData save_data;
-			if (EditorSaveData.IsBinnedFile("$profile:/EditorFiles/" + file)) {
-				save_data = LoadBinFile("$profile:/EditorFiles/" + file);
+			if (EditorSaveData.IsBinnedFile(RootDirectory + file)) {
+				save_data = LoadBinFile(RootDirectory + file);
 			} else {
-				save_data = LoadJsonFile("$profile:/EditorFiles/" + file);
+				save_data = LoadJsonFile(RootDirectory + file);
 			}
 			
 			if (!save_data) {
@@ -128,7 +129,7 @@ class EditorLoaderModule: JMModuleBase
 			}
 			
 			m_WorldDataImports.Insert(save_data);
-			EditorLoaderLog("Loaded $profile:/EditorFiles/" + file);
+			EditorLoaderLog("Loaded " + RootDirectory + file);
 		}
 		
 		// Create and Delete buildings on Server Side
