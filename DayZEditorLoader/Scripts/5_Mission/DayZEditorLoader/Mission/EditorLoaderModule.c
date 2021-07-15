@@ -160,7 +160,7 @@ class EditorLoaderModule: JMModuleBase
 			EditorLoaderLog("File found: " + file);
 			
 			EditorSaveData save_data;
-			if (file.Contains("dzebin")) {
+			if (EditorSaveData.IsBinnedFile("$profile:/EditorFiles/" + file)) {
 				save_data = LoadBinFile("$profile:/EditorFiles/" + file);
 			} else {
 				save_data = LoadJsonFile("$profile:/EditorFiles/" + file);
