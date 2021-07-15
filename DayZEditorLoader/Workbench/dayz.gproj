@@ -37,6 +37,8 @@ GameProjectClass {
 						"scripts/1_Core"
 						"JM/CF/defines"
 						"JM/CF/scripts/1_Core"
+						"DabsFramework/Scripts/1_Core"
+						"DayZEditor/Scripts/1_Core"
 						"DayZEditorLoader/scripts/1_Core"
 					}
 					EntryPoint ""
@@ -57,6 +59,8 @@ GameProjectClass {
 						"JM/CF/LayoutBindingManager/3_Game"
 						"JM/CF/Permissions/3_Game"
 						"JM/CF/scripts/3_Game"
+						"DabsFramework/Scripts/3_Game"
+						"DayZEditor/Scripts/3_Game"
 						"DayZEditorLoader/Scripts/3_Game"
 					}
 					EntryPoint "CreateGame"
@@ -68,6 +72,8 @@ GameProjectClass {
 						"JM/CF/defines"
 						"JM/CF/scripts/4_World"
 						"JM/CF/Permissions/4_World"
+						"DabsFramework/Scripts/4_World"
+						"DayZEditor/Scripts/4_World"
 						"DayZEditorLoader/scripts/4_World"
 					}
 					EntryPoint ""
@@ -80,6 +86,8 @@ GameProjectClass {
 						"JM/CF/scripts/5_Mission"
 						"JM/CF/LayoutBindingManager/5_Mission"
 						"JM/CF/Permissions/5_Mission"
+						"DabsFramework/Scripts/5_Mission"
+						"DayZEditor/Scripts/5_Mission"
 						"DayZEditorLoader/scripts/5_Mission"
 					}
 					EntryPoint "CreateMission"
