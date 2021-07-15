@@ -90,90 +90,112 @@ class EditorLoaderModule: JMModuleBase
 		
 		return files;
 	}
+	
+	EditorSaveData LoadBinFile(string file)
+	{				
+		FileSerializer serializer = new FileSerializer();
+		EditorSaveData save_data = new EditorSaveData();		
+		
+		if (!serializer.Open(file, FileMode.READ)) {
+			Error("Failed to open file " + file);
+			return null;
+		}
+				
+		if (!save_data.Read(serializer)) {
+			Error("Failed to read file " + file);
+		}
+		
+		serializer.Close();		
+		return save_data;
+	}
+	
+	EditorSaveData LoadJsonFile(string file)
+	{
+		JsonSerializer serializer = new JsonSerializer();
+		EditorSaveData save_data = new EditorSaveData();
+		FileHandle fh = OpenFile(file, FileMode.READ);
+		string jsonData;
+		string error;
+
+		if (!fh) {
+			//EditorLog.Error("EditorJsonLoader::LoadFromFile File could not be opened %1", path);
+			Error("Could not open file " + file);
+			return null;
+		}
+		
+		string line;
+		while (FGets(fh, line) > 0) {
+			jsonData = jsonData + "\n" + line;
+		}
+
+		bool success = serializer.ReadFromString(save_data, jsonData, error);
+		if (error != string.Empty || !success) {
+			//EditorLog.Error("EditorJsonLoader::LoadFromFile ERROR Parsing %1", error);
+			Error(error);
+			return null;
+		}
+		
+		CloseFile(fh);
+		return save_data;
+	}
 
 	override void OnMissionStart()
 	{
 		EditorLoaderLog("OnMissionStart");
 		
 		// Everything below this line is the Server side syncronization :)
-		if (IsMissionHost()) {
-			if (!MakeDirectory("$profile:EditorFiles")) {
-				EditorLoaderLog("Could not create EditorFiles directory. Exiting...");
-				return;
-			}
-	
-			EditorSaveData data_import;				
-			TStringArray files = FindFiles("*.dzebin");
-			foreach (string bin_file: files) {
-				EditorLoaderLog("File found: " + bin_file);
-				FileSerializer serializer();
-				if (!serializer) {
-					Error("Failed to create FileSerializer");
-					continue;
-				}
-				
-				if (!serializer.Open("$profile:/EditorFiles/" + bin_file, FileMode.READ)) {
-					Error("Failed to open file " + bin_file);
-					continue;
-				}
-				
-				data_import = new EditorSaveData();				
-				if (!data_import.Read(serializer)) {
-					Error("Failed to read file " + bin_file);
-					serializer.Close();
-					continue;
-				}
-								
-				serializer.Close();
-				m_WorldDataImports.Insert(data_import);
-				EditorLoaderLog("Loaded $profile:/EditorFiles/" + bin_file);
-			}
-			
-			files = FindFiles("*.dze");
-			foreach (string file: files) {
-				file.ToLower();
-				if (file.Contains("dzebin")) {
-					continue;
-				}
-				
-				EditorLoaderLog("File found: " + file);
-				JsonFileLoader<EditorSaveData>.JsonLoadFile("$profile:/EditorFiles/" + file, data_import);
-				if (!data_import) {					
-					Error("Data was invalid");
-					continue;
-				}
-				
-				data_import.MapName.ToLower();
-				if (data_import.MapName != GetFormattedWorldName()) {
-					Error("Wrong world loaded, current is " + GetFormattedWorldName() + ", file is made for " + data_import.MapName);
-					//continue;
-				}
-				
-				m_WorldDataImports.Insert(data_import);
-				EditorLoaderLog("Loaded $profile:/EditorFiles/" + file);
-			}
-						
-			// Create and Delete buildings on Server Side
-			foreach (EditorSaveData editor_data: m_WorldDataImports) {
-				
-				EditorLoaderLog(string.Format("%1 created objects found", editor_data.EditorObjects.Count()));
-				EditorLoaderLog(string.Format("%1 deleted objects found", editor_data.EditorDeletedObjects.Count()));
-				
-				foreach (EditorDeletedObjectData deleted_object: editor_data.EditorDeletedObjects) {
-					m_WorldDeletedBuildings.Insert(deleted_object);
-				}
-				
-				foreach (EditorObjectData editor_object: editor_data.EditorObjects) {
-					m_WorldCreatedBuildings.Insert(editor_object);
-				}
-			}
-			
-			EditorLoaderDeleteBuildings(m_WorldDeletedBuildings);
-			EditorLoaderCreateBuildings(m_WorldCreatedBuildings);
-			
-			// Runs thread that watches for EditorLoaderModule.ExportLootData = true;
-			thread ExportLootData();
+		if (!IsMissionHost()) {
+			return;
 		}
+		
+		if (!MakeDirectory("$profile:EditorFiles")) {
+			EditorLoaderLog("Could not create EditorFiles directory. Exiting...");
+			return;
+		}
+
+		EditorSaveData data_import;				
+		TStringArray files = FindFiles("*.dze");
+		Serializer serializer;
+		
+		foreach (string file: files) {
+			EditorLoaderLog("File found: " + file);
+			
+			EditorSaveData save_data;
+			if (file.Contains("dzebin")) {
+				save_data = LoadBinFile("$profile:/EditorFiles/" + file);
+			} else {
+				save_data = LoadJsonFile("$profile:/EditorFiles/" + file);
+			}
+			
+			if (!save_data) {
+				EditorLoaderLog("Failed to load " + file);
+				continue;
+			}
+			
+			m_WorldDataImports.Insert(save_data);
+			EditorLoaderLog("Loaded $profile:/EditorFiles/" + file);
+		}
+		
+		// Create and Delete buildings on Server Side
+		foreach (EditorSaveData editor_data: m_WorldDataImports) {
+			
+			EditorLoaderLog(string.Format("%1 created objects found", editor_data.EditorObjects.Count()));
+			EditorLoaderLog(string.Format("%1 deleted objects found", editor_data.EditorDeletedObjects.Count()));
+			
+			foreach (EditorDeletedObjectData deleted_object: editor_data.EditorDeletedObjects) {
+				m_WorldDeletedBuildings.Insert(deleted_object);
+			}
+			
+			foreach (EditorObjectData editor_object: editor_data.EditorObjects) {
+				m_WorldCreatedBuildings.Insert(editor_object);
+			}
+		}
+		
+		EditorLoaderDeleteBuildings(m_WorldDeletedBuildings);
+		EditorLoaderCreateBuildings(m_WorldCreatedBuildings);
+		
+		// Runs thread that watches for EditorLoaderModule.ExportLootData = true;
+		thread ExportLootData();
 	}
 	
 	string GetFormattedWorldName()
@@ -201,7 +223,6 @@ class EditorLoaderModule: JMModuleBase
 		EditorLoaderLog("OnClientDisconnect");
 		m_LoadedPlayers.Remove(m_LoadedPlayers.Find(uid));
 	}
-	
 	
 	private void SendClientData(PlayerIdentity identity)
 	{
