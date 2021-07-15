@@ -100,7 +100,7 @@ class EditorLoaderModule: JMModuleBase
 		TStringArray files = FindFiles("*.dze");
 		Serializer serializer;
 		
-		int time = GetGame().GetTime();
+		float time = GetGame().GetTime();
 		foreach (string file: files) {
 			EditorLoaderLog("File found: " + file);
 			
@@ -141,7 +141,7 @@ class EditorLoaderModule: JMModuleBase
 			}
 		}
 		
-		EditorLoaderLog("Deleted & Created all objects in " + (GetGame().GetTime() - time) + "s");	
+		EditorLoaderLog("Deleted & Created all objects in " + ((GetGame().GetTime() - time) / 1000) + "s");	
 			
 		// Runs thread that watches for EditorLoaderModule.ExportLootData = true;
 		thread ExportLootData();
@@ -175,7 +175,6 @@ class EditorLoaderModule: JMModuleBase
 	
 	private void SendClientData(PlayerIdentity identity)
 	{
-		int time = GetGame().GetTime();
 		DeletedBuildingsPacket deleted_packets();
 		
 		// Delete buildings on client side
@@ -195,8 +194,6 @@ class EditorLoaderModule: JMModuleBase
 		if (deleted_packets.Count() > 0) {
 			GetRPCManager().SendRPC("EditorLoaderModule", "EditorLoaderRemoteDeleteBuilding", new Param1<ref DeletedBuildingsPacket>(deleted_packets), true, identity);
 		}
-		
-		EditorLoaderLog("Deleted all objects in " + (GetGame().GetTime() - time) + "s");
 	}
 	
 	void EditorLoaderRemoteDeleteBuilding(CallType type, ref ParamsReadContext ctx, ref PlayerIdentity sender, ref Object target)
