@@ -120,13 +120,21 @@ class EditorLoaderModule: JMModuleBase
 			EditorLoaderLog("Loaded " + RootDirectory + file);
 		}
 		
+		EditorLoaderLog("Loaded files in " + ((GetGame().GetTime() - time) / 1000) + "s");	
+		
 		// Create and Delete buildings on Server Side
 		foreach (EditorSaveData editor_data: m_WorldDataImports) {
 			EditorLoaderLog(string.Format("%1 created objects found", editor_data.EditorObjects.Count()));
 			EditorLoaderLog(string.Format("%1 deleted objects found", editor_data.EditorDeletedObjects.Count()));
 			
-			foreach (EditorDeletedObjectData deleted_object: editor_data.EditorDeletedObjects) {
-				CF_ObjectManager.HideMapObject(deleted_object.FindObject());
+			foreach (EditorDeletedObjectData deleted_object: editor_data.EditorDeletedObjects) {				
+				Object deleted_obj = deleted_object.FindObject();
+				if (!deleted_obj) {
+					EditorLoaderLog("Skipping " + deleted_object.Type);
+					continue;
+				}
+				
+				ObjectRemover.RemoveObject(deleted_obj);
 			}
 			
 			foreach (EditorObjectData editor_object: editor_data.EditorObjects) {	
@@ -175,13 +183,14 @@ class EditorLoaderModule: JMModuleBase
 	
 	private void SendClientData(PlayerIdentity identity)
 	{
+		float time = GetGame().GetTime();
 		DeletedBuildingsPacket deleted_packets();
 		
 		// Delete buildings on client side
 		for (int i = 0; i < m_WorldDataImports.Count(); i++) {
 			for (int j = 0; j < m_WorldDataImports[i].EditorDeletedObjects.Count(); j++) {
-				deleted_packets.Insert(m_WorldDataImports[i].EditorDeletedObjects[j]);				
-				
+				deleted_packets.Insert(m_WorldDataImports[i].EditorDeletedObjects[j]);
+								
 				// Send in packages of 100
 				if (deleted_packets.Count() >= 100) {
 					GetRPCManager().SendRPC("EditorLoaderModule", "EditorLoaderRemoteDeleteBuilding", new Param1<ref DeletedBuildingsPacket>(deleted_packets), true, identity);
@@ -190,10 +199,11 @@ class EditorLoaderModule: JMModuleBase
 			}
 		}
 		
-		// Find fullproof way to never send this if no buildings
 		if (deleted_packets.Count() > 0) {
 			GetRPCManager().SendRPC("EditorLoaderModule", "EditorLoaderRemoteDeleteBuilding", new Param1<ref DeletedBuildingsPacket>(deleted_packets), true, identity);
 		}
+		
+		EditorLoaderLog("Sent Deleted objects in " + ((GetGame().GetTime() - time) / 1000) + "s");	
 	}
 	
 	void EditorLoaderRemoteDeleteBuilding(CallType type, ref ParamsReadContext ctx, ref PlayerIdentity sender, ref Object target)
@@ -205,14 +215,14 @@ class EditorLoaderModule: JMModuleBase
 		
 		DeletedBuildingsPacket packet = delete_params.param1;		
 		foreach (EditorDeletedObjectData deleted_building: packet) {
-			CF_ObjectManager.HideMapObject(deleted_building.FindObject());
+			ObjectRemover.RemoveObject(deleted_building.FindObject());
 		}
 	}	
 	
 	// Runs on both client AND server
 	override void OnMissionFinish()
 	{
-		CF.ObjectManager.UnhideAllMapObjects(false);		
+		ObjectRemover.RestoreAllMapObjects();	
 	}
 		
 	private void ExportLootData()
