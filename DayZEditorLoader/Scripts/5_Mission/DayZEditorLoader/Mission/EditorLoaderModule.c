@@ -16,19 +16,6 @@ class EditorLoaderModule: JMModuleBase
 	{
 		delete m_WorldDataImports;
 	}
-					
-	void EditorLoaderRemoteDeleteBuilding(CallType type, ref ParamsReadContext ctx, ref PlayerIdentity sender, ref Object target)
-	{
-		Param1<ref DeletedBuildingsPacket> delete_params(new DeletedBuildingsPacket());
-		if (!ctx.Read(delete_params)) {
-			return;
-		}
-		
-		DeletedBuildingsPacket packet = delete_params.param1;		
-		foreach (EditorDeletedObjectData deleted_building: packet) {
-			CF_ObjectManager.HideMapObject(deleted_building.FindObject());
-		}
-	}	
 
 	TStringArray FindFiles(string extension = ".dze")
 	{
@@ -205,6 +192,19 @@ class EditorLoaderModule: JMModuleBase
 			GetRPCManager().SendRPC("EditorLoaderModule", "EditorLoaderRemoteDeleteBuilding", new Param1<ref DeletedBuildingsPacket>(deleted_packets), true, identity);
 		}
 	}
+	
+	void EditorLoaderRemoteDeleteBuilding(CallType type, ref ParamsReadContext ctx, ref PlayerIdentity sender, ref Object target)
+	{
+		Param1<ref DeletedBuildingsPacket> delete_params(new DeletedBuildingsPacket());
+		if (!ctx.Read(delete_params)) {
+			return;
+		}
+		
+		DeletedBuildingsPacket packet = delete_params.param1;		
+		foreach (EditorDeletedObjectData deleted_building: packet) {
+			CF_ObjectManager.HideMapObject(deleted_building.FindObject());
+		}
+	}	
 	
 	// Runs on both client AND server
 	override void OnMissionFinish()
