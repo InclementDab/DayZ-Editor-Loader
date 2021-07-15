@@ -143,7 +143,7 @@ class EditorLoaderModule: JMModuleBase
 		EditorLoaderLog("OnMissionStart");
 		
 		// Everything below this line is the Server side syncronization :)
-		if (!IsMissionHost()) {
+		if (!GetGame().IsServer() || !GetGame().IsMultiplayer()) {
 			return;
 		}
 		
