@@ -87,7 +87,6 @@ class EditorLoaderModule: JMModuleBase
 		}
 		
 		CloseFindFile(find_handle);
-		
 		return files;
 	}
 	
@@ -103,6 +102,8 @@ class EditorLoaderModule: JMModuleBase
 				
 		if (!save_data.Read(serializer)) {
 			Error("Failed to read file " + file);
+			serializer.Close();
+			return null;
 		}
 		
 		serializer.Close();		
@@ -118,7 +119,6 @@ class EditorLoaderModule: JMModuleBase
 		string error;
 
 		if (!fh) {
-			//EditorLog.Error("EditorJsonLoader::LoadFromFile File could not be opened %1", path);
 			Error("Could not open file " + file);
 			return null;
 		}
@@ -130,7 +130,6 @@ class EditorLoaderModule: JMModuleBase
 
 		bool success = serializer.ReadFromString(save_data, jsonData, error);
 		if (error != string.Empty || !success) {
-			//EditorLog.Error("EditorJsonLoader::LoadFromFile ERROR Parsing %1", error);
 			Error(error);
 			return null;
 		}
@@ -178,7 +177,6 @@ class EditorLoaderModule: JMModuleBase
 		
 		// Create and Delete buildings on Server Side
 		foreach (EditorSaveData editor_data: m_WorldDataImports) {
-			
 			EditorLoaderLog(string.Format("%1 created objects found", editor_data.EditorObjects.Count()));
 			EditorLoaderLog(string.Format("%1 deleted objects found", editor_data.EditorDeletedObjects.Count()));
 			
