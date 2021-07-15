@@ -5,8 +5,6 @@ class EditorLoaderModule: JMModuleBase
 	static bool ExportLootData = false;	
 	
 	protected ref array<ref EditorSaveData> m_WorldDataImports = {};
-	protected ref array<ref EditorObjectData> m_WorldCreatedBuildings = {};
-	protected ref array<ref EditorDeletedObjectData> m_WorldDeletedBuildings = {};
 	
 	void EditorLoaderModule()
 	{
@@ -16,60 +14,18 @@ class EditorLoaderModule: JMModuleBase
 	void ~EditorLoaderModule()
 	{
 		delete m_WorldDataImports;
-		delete m_WorldCreatedBuildings;
-		delete m_WorldDeletedBuildings;
 	}
-		
-	void EditorLoaderCreateBuildings(array<ref EditorObjectData> editor_objects)
-	{
-		EditorLoaderLog(string.Format("Creating %1 buildings", editor_objects.Count()));
-		foreach (EditorObjectData editor_object: editor_objects) {
-			
-			// This will cause.... issues (Might remove in the future for Trader mod?)
-			if (GetGame().IsKindOf(editor_object.Type, "Man") || GetGame().IsKindOf(editor_object.Type, "DZ_LightAI")) {
-				continue;
-			}
-			
-		    Object obj = GetGame().CreateObjectEx(editor_object.Type, editor_object.Position, ECE_SETUP | ECE_UPDATEPATHGRAPH | ECE_CREATEPHYSICS);
-
-			if (!obj) {
-				continue;
-			}
-			
-			//obj.SetScale(editor_object.Scale);
-		    obj.SetOrientation(editor_object.Orientation);
-		    obj.SetFlags(EntityFlags.STATIC, false);
-		    obj.Update();
-		}
-	}
-
-	void EditorLoaderDeleteBuildings(array<ref EditorDeletedObjectData> building_list)
-	{
-		if (building_list.Count() == 0) {
-			EditorLoaderLog("No deleted buildings found, skipping...");
-			return;
-		}
-		
-		EditorLoaderLog(string.Format("Deleting %1 buildings", building_list.Count()));
-		foreach (EditorDeletedObjectData deleted_building: building_list) {	
-			CF_ObjectManager.HideMapObject(deleted_building.FindObject());
-		}
-	}
-			
+					
 	void EditorLoaderRemoteDeleteBuilding(CallType type, ref ParamsReadContext ctx, ref PlayerIdentity sender, ref Object target)
 	{
-		Param2<ref DeletedBuildingsPacket, bool> delete_params(new DeletedBuildingsPacket(), false);
+		Param1<ref DeletedBuildingsPacket> delete_params(new DeletedBuildingsPacket());
 		if (!ctx.Read(delete_params)) {
 			return;
 		}
 		
 		DeletedBuildingsPacket packet = delete_params.param1;		
 		foreach (EditorDeletedObjectData deleted_building: packet) {
-			m_WorldDeletedBuildings.Insert(deleted_building);
-		}
-		
-		if (delete_params.param2) {
-			EditorLoaderDeleteBuildings(m_WorldDeletedBuildings);
+			CF_ObjectManager.HideMapObject(deleted_building.FindObject());
 		}
 	}	
 
@@ -181,17 +137,21 @@ class EditorLoaderModule: JMModuleBase
 			EditorLoaderLog(string.Format("%1 deleted objects found", editor_data.EditorDeletedObjects.Count()));
 			
 			foreach (EditorDeletedObjectData deleted_object: editor_data.EditorDeletedObjects) {
-				m_WorldDeletedBuildings.Insert(deleted_object);
+				CF_ObjectManager.HideMapObject(deleted_object.FindObject());
 			}
 			
-			foreach (EditorObjectData editor_object: editor_data.EditorObjects) {
-				m_WorldCreatedBuildings.Insert(editor_object);
+			foreach (EditorObjectData editor_object: editor_data.EditorObjects) {	
+			    Object obj = GetGame().CreateObjectEx(editor_object.Type, editor_object.Position, ECE_SETUP | ECE_UPDATEPATHGRAPH | ECE_CREATEPHYSICS);
+				if (!obj) {
+					continue;
+				}
+				
+				//obj.SetScale(editor_object.Scale);
+			    obj.SetOrientation(editor_object.Orientation);
+			    obj.Update();
 			}
 		}
-		
-		EditorLoaderDeleteBuildings(m_WorldDeletedBuildings);
-		EditorLoaderCreateBuildings(m_WorldCreatedBuildings);
-		
+				
 		// Runs thread that watches for EditorLoaderModule.ExportLootData = true;
 		thread ExportLootData();
 	}
@@ -229,20 +189,20 @@ class EditorLoaderModule: JMModuleBase
 		// Delete buildings on client side
 		for (int i = 0; i < m_WorldDataImports.Count(); i++) {
 			for (int j = 0; j < m_WorldDataImports[i].EditorDeletedObjects.Count(); j++) {
-				// Signals that its the final deletion in the final file
-				bool finished = (i == m_WorldDataImports.Count() - 1 && j == m_WorldDataImports[i].EditorDeletedObjects.Count() - 1);
-				deleted_packets.Insert(m_WorldDataImports[i].EditorDeletedObjects[j]);
+				deleted_packets.Insert(m_WorldDataImports[i].EditorDeletedObjects[j]);				
 				
 				// Send in packages of 100
 				if (deleted_packets.Count() >= 100) {
-					GetRPCManager().SendRPC("EditorLoaderModule", "EditorLoaderRemoteDeleteBuilding", new Param2<ref DeletedBuildingsPacket, bool>(deleted_packets, false), true, identity);
+					GetRPCManager().SendRPC("EditorLoaderModule", "EditorLoaderRemoteDeleteBuilding", new Param1<ref DeletedBuildingsPacket>(deleted_packets), true, identity);
 					deleted_packets.Clear();
 				}				
 			}
 		}
 		
 		// Find fullproof way to never send this if no buildings
-		GetRPCManager().SendRPC("EditorLoaderModule", "EditorLoaderRemoteDeleteBuilding", new Param2<ref DeletedBuildingsPacket, bool>(deleted_packets, true), true, identity);
+		if (deleted_packets.Count() > 0) {
+			GetRPCManager().SendRPC("EditorLoaderModule", "EditorLoaderRemoteDeleteBuilding", new Param1<ref DeletedBuildingsPacket>(deleted_packets), true, identity);
+		}
 	}
 	
 	// Runs on both client AND server
