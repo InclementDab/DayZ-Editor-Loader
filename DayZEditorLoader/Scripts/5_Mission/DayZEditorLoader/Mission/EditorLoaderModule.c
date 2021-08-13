@@ -138,14 +138,26 @@ class EditorLoaderModule: JMModuleBase
 			}
 			
 			foreach (EditorObjectData editor_object: editor_data.EditorObjects) {	
+				// Do not spawn, it is Editor Only				
+				if (editor_object.EditorOnly) {
+					continue;
+				}
+				
 			    Object obj = GetGame().CreateObjectEx(editor_object.Type, editor_object.Position, ECE_SETUP | ECE_UPDATEPATHGRAPH | ECE_CREATEPHYSICS);
 				if (!obj) {
 					continue;
 				}
-				
+								
+				obj.SetAllowDamage(editor_object.AllowDamage);
 				//obj.SetScale(editor_object.Scale);
 			    obj.SetOrientation(editor_object.Orientation);
 			    obj.Update();
+				
+				// EntityAI cast stuff
+				EntityAI ent = EntityAI.Cast(obj);
+				if (ent) {
+					ent.DisableSimulation(!editor_object.Simulate);
+				}
 			}
 		}
 		
