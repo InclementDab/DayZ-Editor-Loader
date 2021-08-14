@@ -158,6 +158,13 @@ class EditorLoaderModule: JMModuleBase
 				if (ent) {
 					ent.DisableSimulation(!editor_object.Simulate);
 				}
+				
+				// Update netlights to load the proper data
+				NetworkLightBase netlight = NetworkLightBase.Cast(obj);
+				if (netlight) {
+					netlight.Read(editor_object);
+					netlight.SetSynchDirty();
+				}
 			}
 		}
 		
