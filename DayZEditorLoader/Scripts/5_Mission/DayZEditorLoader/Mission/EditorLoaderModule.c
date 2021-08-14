@@ -162,7 +162,7 @@ class EditorLoaderModule: JMModuleBase
 				// Update netlights to load the proper data
 				NetworkLightBase netlight = NetworkLightBase.Cast(obj);
 				if (netlight) {
-					netlight.Read(editor_object);
+					netlight.Read(editor_object.Parameters);
 					netlight.SetSynchDirty();
 				}
 			}
