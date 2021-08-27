@@ -16,6 +16,8 @@ class EditorLoaderModule: JMModuleBase
 	{
 		delete m_WorldDataImports;
 	}
+	
+	void LoadCustomBuilds(out array<string> custom_builds);
 
 	TStringArray FindFiles(string extension = ".dze")
 	{
@@ -98,7 +100,9 @@ class EditorLoaderModule: JMModuleBase
 
 		EditorSaveData data_import;				
 		TStringArray files = FindFiles("*.dze");
-		Serializer serializer;
+		
+		// append all packed builds to this
+		LoadCustomBuilds(files);
 		
 		float time = GetGame().GetTime();
 		foreach (string file: files) {
