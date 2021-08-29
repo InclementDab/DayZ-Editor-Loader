@@ -234,7 +234,7 @@ class EditorLoaderModule: JMModuleBase
 		EditorLoaderLog("Sent Deleted objects in " + ((GetGame().GetTime() - time) / 1000) + "s");	
 	}
 	
-	void EditorLoaderRemoteDeleteBuilding(CallType type, ref ParamsReadContext ctx, ref PlayerIdentity sender, ref Object target)
+	void EditorLoaderRemoteDeleteBuilding(CallType type, ParamsReadContext ctx, PlayerIdentity sender, Object target)
 	{
 		Param1<ref DeletedBuildingsPacket> delete_params(new DeletedBuildingsPacket());
 		if (!ctx.Read(delete_params)) {
