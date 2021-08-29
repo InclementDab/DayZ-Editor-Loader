@@ -17,7 +17,7 @@ class EditorLoaderModule: JMModuleBase
 		delete m_WorldDataImports;
 	}
 	
-	void LoadCustomBuilds(out array<string> custom_builds);
+	void LoadCustomBuilds(inout array<string> custom_builds) {} // making this into a semi-colon deletes the array
 
 	TStringArray FindFiles(string extension = ".dze")
 	{
@@ -103,6 +103,11 @@ class EditorLoaderModule: JMModuleBase
 		
 		// append all packed builds to this
 		LoadCustomBuilds(files);
+		
+		if (files.Count() == 0) {
+			EditorLoaderLog("No files found, exiting");
+			return;
+		}
 		
 		float time = GetGame().GetTime();
 		foreach (string file: files) {
