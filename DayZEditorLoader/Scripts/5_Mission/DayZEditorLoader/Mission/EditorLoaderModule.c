@@ -139,7 +139,6 @@ class EditorLoaderModule: JMModuleBase
 			foreach (EditorDeletedObjectData deleted_object: editor_data.EditorDeletedObjects) {				
 				Object deleted_obj = deleted_object.FindObject();
 				if (!deleted_obj) {
-					EditorLoaderLog("Skipping " + deleted_object.Type);
 					continue;
 				}
 				
@@ -172,7 +171,6 @@ class EditorLoaderModule: JMModuleBase
 				NetworkLightBase netlight = NetworkLightBase.Cast(obj);
 				if (netlight) {
 					netlight.Read(editor_object.Parameters);
-					netlight.SetSynchDirty();
 				}
 			}
 		}
