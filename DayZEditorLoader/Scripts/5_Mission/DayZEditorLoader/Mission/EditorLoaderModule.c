@@ -2,7 +2,7 @@ typedef array<ref EditorDeletedObjectData> DeletedBuildingsPacket;
 
 class EditorLoaderModule: JMModuleBase
 {
-	static const string RootDirectory = "$mission:\\EditorFiles";
+	static const string ROOT_DIRECTORY = "$mission:\\EditorFiles";
 	static bool ExportLootData = false;	
 	
 	protected ref array<ref EditorSaveData> m_WorldDataImports = {};
@@ -110,15 +110,21 @@ class EditorLoaderModule: JMModuleBase
 			return;
 		}
 		
-		if (!MakeDirectory(RootDirectory)) {
+		if (!MakeDirectory(ROOT_DIRECTORY)) {
 			EditorLoaderLog("Could not create EditorFiles directory. Exiting...");
 			return;
 		}
+		
+#ifdef DAYZ_1_14
+		Print("Doing 1.14 check");
+		
+		
+#endif
 
 		EditorSaveData data_import;
 		
 		TStringArray files = {};
-		LoadFolder(RootDirectory, files);
+		LoadFolder(ROOT_DIRECTORY, files);
 		
 		// append all packed builds to this
 		LoadCustomBuilds(files);
