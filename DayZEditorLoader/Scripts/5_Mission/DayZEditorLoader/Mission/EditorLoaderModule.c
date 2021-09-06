@@ -115,9 +115,20 @@ class EditorLoaderModule: JMModuleBase
 			return;
 		}
 		
-#ifdef DAYZ_1_14
-		Print("Doing 1.14 check");
+#ifdef DAYZ_1_14		
+		array<string> old_files = {};
+		LoadFolder("$profile:EditorFiles", old_files);
+		if (old_files.Count() > 0) {
+			Print("" + old_files.Count() + " old files detected");
+			// Add readme
+			CopyFile("DayZEditorLoader\\Scripts\\Data\\README.txt", "$profile:EditorFiles\\README.txt");
+		}
 		
+		foreach (string old_file: old_files) {
+			string new_file = old_file;
+			new_file.Replace("profile", "mission");
+			CopyFile(old_file, new_file);
+		}
 		
 #endif
 
