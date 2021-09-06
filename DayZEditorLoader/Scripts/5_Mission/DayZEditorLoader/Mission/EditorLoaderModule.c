@@ -167,11 +167,11 @@ class EditorLoaderModule: JMModuleBase
 		}
 		
 		EditorLoaderLog("Loaded files in " + ((GetGame().GetTime() - time) / 1000) + "s");	
-		
+		int created_objects, deleted_objects;
 		// Create and Delete buildings on Server Side
 		foreach (EditorSaveData editor_data: m_WorldDataImports) {
-			EditorLoaderLog(string.Format("%1 created objects found", editor_data.EditorObjects.Count()));
-			EditorLoaderLog(string.Format("%1 deleted objects found", editor_data.EditorDeletedObjects.Count()));
+			created_objects += editor_data.EditorObjects.Count();
+			deleted_objects += editor_data.EditorDeletedObjects.Count();
 			
 			foreach (EditorDeletedObjectData deleted_object: editor_data.EditorDeletedObjects) {				
 				Object deleted_obj = deleted_object.FindObject();
@@ -194,7 +194,7 @@ class EditorLoaderModule: JMModuleBase
 				}
 								
 				obj.SetAllowDamage(editor_object.AllowDamage);
-				//obj.SetScale(editor_object.Scale);
+				obj.SetScale(editor_object.Scale);
 			    obj.SetOrientation(editor_object.Orientation);
 			    obj.Update();
 				
@@ -211,6 +211,9 @@ class EditorLoaderModule: JMModuleBase
 				}
 			}
 		}
+		
+		EditorLoaderLog(string.Format("%1 created objects found", created_objects));
+		EditorLoaderLog(string.Format("%1 deleted objects found", deleted_objects));
 		
 		EditorLoaderLog("Deleted & Created all objects in " + ((GetGame().GetTime() - time) / 1000) + "s");	
 			
