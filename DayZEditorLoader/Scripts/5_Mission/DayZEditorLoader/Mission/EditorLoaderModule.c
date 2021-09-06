@@ -2,7 +2,7 @@ typedef array<ref EditorDeletedObjectData> DeletedBuildingsPacket;
 
 class EditorLoaderModule: JMModuleBase
 {
-	static const string RootDirectory = "$profile:/EditorFiles/";
+	static const string RootDirectory = "$mission:/EditorFiles/";
 	static bool ExportLootData = false;	
 	
 	protected ref array<ref EditorSaveData> m_WorldDataImports = {};
