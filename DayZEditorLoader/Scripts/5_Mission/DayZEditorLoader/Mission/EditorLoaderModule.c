@@ -212,9 +212,8 @@ class EditorLoaderModule: JMModuleBase
 			}
 		}
 		
-		EditorLoaderLog(string.Format("%1 created objects found", created_objects));
-		EditorLoaderLog(string.Format("%1 deleted objects found", deleted_objects));
-		
+		EditorLoaderLog(string.Format("%1 total objects created", created_objects));
+		EditorLoaderLog(string.Format("%1 total objects deleted", deleted_objects));
 		EditorLoaderLog("Deleted & Created all objects in " + ((GetGame().GetTime() - time) / 1000) + "s");	
 			
 		// Runs thread that watches for EditorLoaderModule.ExportLootData = true;
