@@ -127,7 +127,9 @@ class EditorLoaderModule: JMModuleBase
 		foreach (string old_file: old_files) {
 			string new_file = old_file;
 			new_file.Replace("profile", "mission");
-			CopyFile(old_file, new_file);
+			if (CopyFile(old_file, new_file)) {
+				DeleteFile(old_file);
+			}
 		}
 		
 #endif
