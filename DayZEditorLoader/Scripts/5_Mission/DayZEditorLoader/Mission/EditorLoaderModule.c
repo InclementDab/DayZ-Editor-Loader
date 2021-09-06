@@ -2,7 +2,7 @@ typedef array<ref EditorDeletedObjectData> DeletedBuildingsPacket;
 
 class EditorLoaderModule: JMModuleBase
 {
-	static const string RootDirectory = "$mission:/EditorFiles/";
+	static const string RootDirectory = "$mission:\\EditorFiles";
 	static bool ExportLootData = false;	
 	
 	protected ref array<ref EditorSaveData> m_WorldDataImports = {};
@@ -18,22 +18,39 @@ class EditorLoaderModule: JMModuleBase
 	}
 	
 	void LoadCustomBuilds(inout array<string> custom_builds) {} // making this into a semi-colon deletes the array
-
-	TStringArray FindFiles(string extension = ".dze")
+	
+	void LoadFolder(string folder, inout array<string> files)
 	{
-		TStringArray files = {};
-		string file_name;
+		string folder_name, file_name;
 		FileAttr file_attr;
 		
-		FindFileHandle find_handle = FindFile(string.Format("%1*%2", RootDirectory, extension), file_name, file_attr, FindFileFlags.ALL);
-		files.Insert(file_name);
-		
-		while (FindNextFile(find_handle, file_name, file_attr)) {
-			files.Insert(file_name);
+		// scan for folders
+		FindFileHandle folder_handle = FindFile(string.Format("%1\\*", folder), folder_name, file_attr, FindFileFlags.DIRECTORIES);
+		if (folder_name != string.Empty && file_attr == FileAttr.DIRECTORY) {
+			LoadFolder(folder + "\\" + folder_name + "\\", files);
 		}
 		
-		CloseFindFile(find_handle);
-		return files;
+		while (FindNextFile(folder_handle, folder_name, file_attr)) {
+			if (folder_name != string.Empty && file_attr == FileAttr.DIRECTORY) {
+				LoadFolder(folder + "\\" + folder_name + "\\", files);
+			}
+		}
+		
+		CloseFindFile(folder_handle);
+		
+		// scan for dze files
+		FindFileHandle file_handle = FindFile(string.Format("%1\\*.dze", folder), file_name, file_attr, FindFileFlags.ALL);
+		if (file_name != string.Empty) {
+			files.Insert(folder + "\\" + file_name);
+		}
+		
+		while (FindNextFile(file_handle, file_name, file_attr)) {
+			if (file_name != string.Empty) {
+				files.Insert(folder + "\\" + file_name);
+			}
+		}
+		
+		CloseFindFile(file_handle);
 	}
 	
 	EditorSaveData LoadBinFile(string file)
@@ -98,8 +115,10 @@ class EditorLoaderModule: JMModuleBase
 			return;
 		}
 
-		EditorSaveData data_import;				
-		TStringArray files = FindFiles("*.dze");
+		EditorSaveData data_import;
+		
+		TStringArray files = {};
+		LoadFolder(RootDirectory, files);
 		
 		// append all packed builds to this
 		LoadCustomBuilds(files);
@@ -114,10 +133,10 @@ class EditorLoaderModule: JMModuleBase
 			EditorLoaderLog("File found: " + file);
 			
 			EditorSaveData save_data;
-			if (EditorSaveData.IsBinnedFile(RootDirectory + file)) {
-				save_data = LoadBinFile(RootDirectory + file);
+			if (EditorSaveData.IsBinnedFile(file)) {
+				save_data = LoadBinFile(file);
 			} else {
-				save_data = LoadJsonFile(RootDirectory + file);
+				save_data = LoadJsonFile(file);
 			}
 			
 			if (!save_data) {
@@ -126,7 +145,6 @@ class EditorLoaderModule: JMModuleBase
 			}
 			
 			m_WorldDataImports.Insert(save_data);
-			EditorLoaderLog("Loaded " + RootDirectory + file);
 		}
 		
 		EditorLoaderLog("Loaded files in " + ((GetGame().GetTime() - time) / 1000) + "s");	
