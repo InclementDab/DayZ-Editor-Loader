@@ -187,16 +187,29 @@ class EditorLoaderModule: JMModuleBase
 				if (editor_object.EditorOnly) {
 					continue;
 				}
+
+				// ensure the object exists in a protected/public scope, or exists
+				if (GetGame().ConfigGetInt("CfgVehicles " + editor_object.Type + " scope") < 1) {
+					EditorLoaderLog("Object '" + editor_object.Type + "' is either private scope or does not exist");
+					continue;
+				}
+
+				// prevent persistent objects from spawning, disable by setting 'disableEditorLoaderSafetyCheck = 1;' in serverDZ.cfg
+				if (!GetGame().ServerConfigGetInt("disableEditorLoaderSafetyCheck") && !IsValidBuilding(editor_object.Type)) {
+					EditorLoaderLog("Object '" + editor_object.Type + "' is a persistence object, skipping");
+					continue;
+				}
 				
-			    Object obj = GetGame().CreateObjectEx(editor_object.Type, editor_object.Position, ECE_SETUP | ECE_UPDATEPATHGRAPH | ECE_CREATEPHYSICS);
+				Object obj = GetGame().CreateObjectEx(editor_object.Type, editor_object.Position, ECE_SETUP | ECE_UPDATEPATHGRAPH | ECE_CREATEPHYSICS);
 				if (!obj) {
 					continue;
 				}
 								
 				obj.SetAllowDamage(editor_object.AllowDamage);
 				obj.SetScale(editor_object.Scale);
-			    obj.SetOrientation(editor_object.Orientation);
-			    obj.Update();
+				obj.SetOrientation(editor_object.Orientation);
+				obj.SetFlags(EntityFlags.STATIC, false); // set object as static, will not persist (fail safe)
+				obj.Update();
 				
 				// EntityAI cast stuff
 				EntityAI ent = EntityAI.Cast(obj);
@@ -315,5 +328,12 @@ class EditorLoaderModule: JMModuleBase
 	static void EditorLoaderLog(string msg)
 	{
 		PrintFormat("[EditorLoader] %1", msg);
+	}
+
+	bool IsValidBuilding(string type)
+	{
+		// check if building is not persistent
+		string destr = GetGame().ConfigGetTextOut("CfgVehicles " + type + " destrType");
+		return (destr == "DestructNo" || destr == "DestructBuilding");
 	}
 }
