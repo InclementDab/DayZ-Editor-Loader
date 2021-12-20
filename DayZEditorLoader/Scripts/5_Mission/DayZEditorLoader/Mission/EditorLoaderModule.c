@@ -199,7 +199,7 @@ class EditorLoaderModule: JMModuleBase
 				}
 				
 				// Update netlights to load the proper data
-				NetworkObjectBase networked_object = NetworkObjectBase.Cast(obj);
+				SerializedBuilding networked_object = SerializedBuilding.Cast(obj);
 				if (networked_object) {
 					networked_object.Read(editor_object.Parameters);
 				}
