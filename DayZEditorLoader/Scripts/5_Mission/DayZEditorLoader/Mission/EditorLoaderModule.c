@@ -4,6 +4,7 @@ class EditorLoaderModule: JMModuleBase
 {
 	static const string ROOT_DIRECTORY = "$mission:\\EditorFiles";
 	static bool ExportLootData = false;	
+	static bool ExportLootExperimental = false;
 	
 	protected ref array<ref EditorSaveData> m_WorldDataImports = {};
 	
@@ -288,12 +289,63 @@ class EditorLoaderModule: JMModuleBase
 	{
 		while (true) {
 			if (GetCEApi() && ExportLootData) {
+				if (ExportLootExperimental) {
+					// experimental export method
+					ExportMapGroupPosManual();
+					return;
+				}
+				
 				GetCEApi().ExportProxyData(vector.Zero, 100000);
 				return;
 			}
 			
 			Sleep(1000);
 		}
+	}
+	
+	private void ExportMapGroupPosManual()
+	{
+		PrintToRPT("Editor Loader forced loot export running...");
+		if (FileExist(MAP_GROUP_POS_FILE) && !DeleteFile(MAP_GROUP_POS_FILE)) {
+			return;
+		}
+		
+		FileHandle handle = OpenFile(MAP_GROUP_POS_FILE, FileMode.WRITE);
+		if (!handle) {
+			Error(string.Format("File in use %1", MAP_GROUP_POS_FILE));
+			return;
+		}
+		
+		FPrintln(handle, "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>");
+		FPrintln(handle, "<map>");
+		
+		array<Object> objects = {};
+
+		GetGame().GetObjectsAtPosition3D(vector.Zero, 100000, objects, null);		
+		foreach (Object world_object: objects) {
+			if (world_object.GetType() == string.Empty) {
+				continue;
+			}
+			
+			if (!world_object.IsInherited(House)) {
+				continue;
+			}
+			
+			vector orientation = world_object.GetOrientation();
+			vector rpy = Vector(orientation[2], orientation[1], orientation[0]);
+			float a;
+			if (rpy[2] <= -90) {
+				a = -rpy[2] - 270;
+			} else {
+				a = 90 - rpy[2];
+			}
+			
+			FPrintln(handle, string.Format("	<group name=\"%1\" pos=\"%2\" rpy=\"%3\" a=\"%4\"/>", world_object.GetType(), world_object.GetPosition().ToString(false), rpy.ToString(false), a));		 //a=\"%4\"
+		}
+		
+		FPrintln(handle, "</map>");
+		
+		CloseFile(handle);
 	}
 	
 	override bool IsClient() 
