@@ -2,6 +2,7 @@ typedef array<ref EditorDeletedObjectData> DeletedBuildingsPacket;
 
 class EditorLoaderModule: JMModuleBase
 {
+	static const string MAP_GROUP_POS_FILE = "$mission:\\mapgrouppos.xml";
 	static const string ROOT_DIRECTORY = "$mission:\\EditorFiles";
 	static bool ExportLootData = false;	
 	static bool ExportLootExperimental = false;
