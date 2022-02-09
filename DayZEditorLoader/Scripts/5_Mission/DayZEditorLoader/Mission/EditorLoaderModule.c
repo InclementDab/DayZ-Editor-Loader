@@ -105,8 +105,6 @@ class EditorLoaderModule: JMModuleBase
 
 	override void OnMissionStart()
 	{
-		EditorLoaderLog("OnMissionStart");
-		
 		// Everything below this line is the Server side syncronization :)
 		if (!GetGame().IsServer() || !GetGame().IsMultiplayer()) {
 			return;
@@ -228,8 +226,6 @@ class EditorLoaderModule: JMModuleBase
 	override void OnInvokeConnect(PlayerBase player, PlayerIdentity identity)
 	{		
 		string id = String(identity.GetId());
-		
-		EditorLoaderLog("OnInvokeConnect");
 		if (GetGame().IsServer() && (m_LoadedPlayers.Find(id) == -1)) {
 			m_LoadedPlayers.Insert(id);
 			SendClientData(identity);
@@ -238,7 +234,6 @@ class EditorLoaderModule: JMModuleBase
 		
 	override void OnClientDisconnect(PlayerBase player, PlayerIdentity identity, string uid)
 	{
-		EditorLoaderLog("OnClientDisconnect");
 		m_LoadedPlayers.Remove(m_LoadedPlayers.Find(uid));
 	}
 	
@@ -271,6 +266,10 @@ class EditorLoaderModule: JMModuleBase
 	{
 		Param1<ref DeletedBuildingsPacket> delete_params(new DeletedBuildingsPacket());
 		if (!ctx.Read(delete_params)) {
+			return;
+		}
+		
+		if (GetGame().IsDedicatedServer()) {
 			return;
 		}
 		
