@@ -190,17 +190,22 @@ class EditorLoaderModule: JMModuleBase
 				obj.SetScale(editor_object.Scale);
 				obj.SetOrientation(editor_object.Orientation);
 				obj.SetFlags(EntityFlags.STATIC, false); // set object as static, will not persist (fail safe)
+				obj.SetAffectPathgraph(true, false); // only set if config states carving, don't force
 				obj.Update();
+
+				if (obj.CanAffectPathgraph()) {
+					GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(GetGame().UpdatePathgraphRegionByObject, 100, false, obj); // refresh navmesh
+				}
 				
 				// EntityAI cast stuff
-				EntityAI ent = EntityAI.Cast(obj);
-				if (ent) {
+				EntityAI ent;
+				if (EntityAI.CastTo(ent, obj)) {
 					ent.DisableSimulation(!editor_object.Simulate);
 				}
 				
 				// Update netlights to load the proper data
-				SerializedBuilding networked_object = SerializedBuilding.Cast(obj);
-				if (networked_object) {
+				SerializedBuilding networked_object;
+				if (SerializedBuilding.CastTo(networked_object, obj)) {
 					networked_object.Read(editor_object.Parameters);
 				}
 			}
