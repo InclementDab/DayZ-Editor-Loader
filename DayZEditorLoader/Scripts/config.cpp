@@ -20,7 +20,6 @@ class CfgMods
 		author = "InclementDab";
 		creditsJson = "DayZEditorLoader/Scripts/Data/Credits.json";
 		versionPath = "DayZEditorLoader/scripts/Data/Version.hpp";
-		inputs = "DayZEditorLoader/Scripts/Data/Inputs.xml";
 		type = "mod";
 		dependencies[] =
 		{
