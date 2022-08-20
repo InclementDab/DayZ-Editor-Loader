@@ -148,19 +148,26 @@ class EditorLoaderModule: JMModuleBase
 		}
 		
 		EditorLoaderLog("Loaded files in " + ((GetGame().GetTime() - time) / 1000) + "s");	
+		int objects_to_create, objects_to_delete;
 		int created_objects, deleted_objects;
 		// Create and Delete buildings on Server Side
 		foreach (EditorSaveData editor_data: m_WorldDataImports) {
-			created_objects += editor_data.EditorObjects.Count();
-			deleted_objects += editor_data.EditorDeletedObjects.Count();
+			objects_to_create += editor_data.EditorObjects.Count();
+			objects_to_delete += editor_data.EditorDeletedObjects.Count();
 			
 			foreach (EditorDeletedObjectData deleted_object: editor_data.EditorDeletedObjects) {				
 				Object deleted_obj = deleted_object.FindObject();
 				if (!deleted_obj) {
+					EditorLoaderLog("Object '" + deleted_object.Type + "' was not found at position " + deleted_object.Position);
 					continue;
 				}
 				
-				ObjectRemover.RemoveObject(deleted_obj);
+				if (!ObjectRemover.RemoveObjectEx(deleted_obj)) {
+					EditorLoaderLog("Object '" + deleted_object.Type + "' at position " + deleted_object.Position + " was not deleted");
+					continue;
+				}
+				
+				deleted_objects++;
 			}
 			
 			foreach (EditorObjectData editor_object: editor_data.EditorObjects) {	
@@ -186,10 +193,12 @@ class EditorLoaderModule: JMModuleBase
 					continue;
 				}
 								
-				obj.SetAllowDamage(editor_object.AllowDamage);
+				created_objects++;
+
+				// disabled for letting 40mm in
+				//obj.SetAllowDamage(editor_object.AllowDamage);
 				obj.SetScale(editor_object.Scale);
 				obj.SetOrientation(editor_object.Orientation);
-				obj.SetFlags(EntityFlags.STATIC, false); // set object as static, will not persist (fail safe)
 				obj.SetAffectPathgraph(true, false); // only set if config states carving, don't force
 				obj.Update();
 
@@ -199,7 +208,7 @@ class EditorLoaderModule: JMModuleBase
 				
 				// EntityAI cast stuff
 				EntityAI ent;
-				if (EntityAI.CastTo(ent, obj)) {
+				if (EntityAI.CastTo(ent, obj) && !editor_object.Simulate) {
 					ent.DisableSimulation(!editor_object.Simulate);
 				}
 				
@@ -211,9 +220,9 @@ class EditorLoaderModule: JMModuleBase
 			}
 		}
 		
-		EditorLoaderLog(string.Format("%1 total objects created", created_objects));
-		EditorLoaderLog(string.Format("%1 total objects deleted", deleted_objects));
-		EditorLoaderLog("Deleted & Created all objects in " + ((GetGame().GetTime() - time) / 1000) + "s");	
+		EditorLoaderLog(string.Format("%1 total objects created of %2", created_objects, objects_to_create));
+		EditorLoaderLog(string.Format("%1 total objects deleted of %2", deleted_objects, objects_to_delete));
+		EditorLoaderLog("Deleted & Created objects in " + ((GetGame().GetTime() - time) / 1000) + "s");	
 			
 		// Runs thread that watches for EditorLoaderModule.ExportLootData = true;
 		thread ExportLootData();
