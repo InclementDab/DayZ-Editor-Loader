@@ -1,20 +1,15 @@
-typedef array<ref EditorDeletedObjectData> DeletedBuildingsPacket;
-
-class EditorLoaderModule: JMModuleBase
+modded class MissionServer
 {
+	static const int RPC_REMOTE_DELETE_BUILDING = -34293538;
+	
 	static const string MAP_GROUP_POS_FILE = "$mission:\\mapgrouppos.xml";
 	static const string ROOT_DIRECTORY = "$mission:\\EditorFiles";
 	static bool ExportLootData = false;	
 	static bool ExportLootExperimental = false;
 	
 	protected ref array<ref EditorSaveData> m_WorldDataImports = {};
-	
-	void EditorLoaderModule()
-	{
-		GetRPCManager().AddRPC("EditorLoaderModule", "EditorLoaderRemoteDeleteBuilding", this);
-	}
-	
-	void ~EditorLoaderModule()
+		
+	void ~MissionServer()
 	{
 		delete m_WorldDataImports;
 	}
@@ -104,11 +99,8 @@ class EditorLoaderModule: JMModuleBase
 	}
 
 	override void OnMissionStart()
-	{
-		// Everything below this line is the Server side syncronization :)
-		if (!GetGame().IsServer() || !GetGame().IsMultiplayer()) {
-			return;
-		}
+	{		
+		super.OnMissionStart();
 		
 		if (!MakeDirectory(ROOT_DIRECTORY)) {
 			EditorLoaderLog("Could not create EditorFiles directory. Exiting...");
@@ -186,10 +178,10 @@ class EditorLoaderModule: JMModuleBase
 					continue;
 				}
 								
-				obj.SetAllowDamage(editor_object.AllowDamage);
-				obj.SetScale(editor_object.Scale);
+				// disabled for letting 40mm in
+				//obj.SetAllowDamage(editor_object.AllowDamage);
 				obj.SetOrientation(editor_object.Orientation);
-				obj.SetFlags(EntityFlags.STATIC, false); // set object as static, will not persist (fail safe)
+				obj.SetScale(editor_object.Scale);
 				obj.SetAffectPathgraph(true, false); // only set if config states carving, don't force
 				obj.Update();
 
@@ -199,7 +191,7 @@ class EditorLoaderModule: JMModuleBase
 				
 				// EntityAI cast stuff
 				EntityAI ent;
-				if (EntityAI.CastTo(ent, obj)) {
+				if (EntityAI.CastTo(ent, obj) && !editor_object.Simulate) {
 					ent.DisableSimulation(!editor_object.Simulate);
 				}
 				
@@ -219,6 +211,13 @@ class EditorLoaderModule: JMModuleBase
 		thread ExportLootData();
 	}
 	
+	override void OnMissionFinish()
+	{
+		super.OnMissionFinish();
+		
+		ObjectRemover.RestoreAllMapObjects();	
+	}
+	
 	string GetFormattedWorldName()
 	{
 		string world_name;
@@ -226,20 +225,12 @@ class EditorLoaderModule: JMModuleBase
 		world_name.ToLower();
 		return world_name;
 	}
-	
-	protected ref array<string> m_LoadedPlayers = {};
-	override void OnInvokeConnect(PlayerBase player, PlayerIdentity identity)
-	{		
-		string id = String(identity.GetId());
-		if (GetGame().IsServer() && (m_LoadedPlayers.Find(id) == -1)) {
-			m_LoadedPlayers.Insert(id);
-			SendClientData(identity);
-		}
-	}
-		
-	override void OnClientDisconnect(PlayerBase player, PlayerIdentity identity, string uid)
+			
+	override void OnPlayerJoined(PlayerBase player, PlayerIdentity identity)
 	{
-		m_LoadedPlayers.Remove(m_LoadedPlayers.Find(uid));
+		super.OnPlayerJoined(player, identity);
+		
+		SendClientData(identity);
 	}
 	
 	private void SendClientData(PlayerIdentity identity)
@@ -254,42 +245,24 @@ class EditorLoaderModule: JMModuleBase
 								
 				// Send in packages of 100
 				if (deleted_packets.Count() >= 100) {
-					GetRPCManager().SendRPC("EditorLoaderModule", "EditorLoaderRemoteDeleteBuilding", new Param1<ref DeletedBuildingsPacket>(deleted_packets), true, identity);
+					ScriptRPC rpc = new ScriptRPC();
+					rpc.Write(deleted_packets);
+					rpc.Send(null, RPC_REMOTE_DELETE_BUILDING, true, identity);
+					
 					deleted_packets.Clear();
 				}				
 			}
 		}
 		
 		if (deleted_packets.Count() > 0) {
-			GetRPCManager().SendRPC("EditorLoaderModule", "EditorLoaderRemoteDeleteBuilding", new Param1<ref DeletedBuildingsPacket>(deleted_packets), true, identity);
+			ScriptRPC rpc_final = new ScriptRPC();
+			rpc_final.Write(deleted_packets);
+			rpc_final.Send(null, RPC_REMOTE_DELETE_BUILDING, true, identity);
 		}
 		
 		EditorLoaderLog("Sent Deleted objects in " + ((GetGame().GetTime() - time) / 1000) + "s");	
 	}
-	
-	void EditorLoaderRemoteDeleteBuilding(CallType type, ParamsReadContext ctx, PlayerIdentity sender, Object target)
-	{
-		Param1<ref DeletedBuildingsPacket> delete_params(new DeletedBuildingsPacket());
-		if (!ctx.Read(delete_params)) {
-			return;
-		}
-		
-		if (GetGame().IsDedicatedServer()) {
-			return;
-		}
-		
-		DeletedBuildingsPacket packet = delete_params.param1;		
-		foreach (EditorDeletedObjectData deleted_building: packet) {
-			ObjectRemover.RemoveObject(deleted_building.FindObject());
-		}
-	}	
-	
-	// Runs on both client AND server
-	override void OnMissionFinish()
-	{
-		ObjectRemover.RestoreAllMapObjects();	
-	}
-		
+					
 	private void ExportLootData()
 	{
 		while (true) {
@@ -352,17 +325,7 @@ class EditorLoaderModule: JMModuleBase
 		
 		CloseFile(handle);
 	}
-	
-	override bool IsClient() 
-	{
-		return true;
-	}
-	
-	override bool IsServer()
-	{
-		return true;
-	}
-	
+		
 	static void EditorLoaderLog(string msg)
 	{
 		PrintFormat("[EditorLoader] %1", msg);
