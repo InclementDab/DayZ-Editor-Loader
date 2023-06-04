@@ -166,14 +166,8 @@ modded class MissionServer
 					EditorLoaderLog("Object '" + editor_object.Type + "' is either private scope or does not exist");
 					continue;
 				}
-
-				// prevent persistent objects from spawning, disable by setting 'disableEditorLoaderSafetyCheck = 1;' in serverDZ.cfg
-				if (!GetGame().ServerConfigGetInt("disableEditorLoaderSafetyCheck") && !IsValidBuilding(editor_object.Type)) {
-					EditorLoaderLog("Object '" + editor_object.Type + "' is a persistence object, skipping");
-					continue;
-				}
 				
-				Object obj = GetGame().CreateObjectEx(editor_object.Type, editor_object.Position, ECE_SETUP | ECE_UPDATEPATHGRAPH | ECE_CREATEPHYSICS);
+				Object obj = GetGame().CreateObjectEx(editor_object.Type, editor_object.Position, ECE_SETUP | ECE_CREATEPHYSICS | ECE_NOLIFETIME | ECE_DYNAMIC_PERSISTENCY);
 				if (!obj) {
 					continue;
 				}
@@ -182,12 +176,9 @@ modded class MissionServer
 				//obj.SetAllowDamage(editor_object.AllowDamage);
 				obj.SetOrientation(editor_object.Orientation);
 				obj.SetScale(editor_object.Scale);
-				obj.SetAffectPathgraph(true, false); // only set if config states carving, don't force
 				obj.Update();
 
-				if (obj.CanAffectPathgraph()) {
-					GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(GetGame().UpdatePathgraphRegionByObject, 100, false, obj); // refresh navmesh
-				}
+				GetGame().GetWorld().MarkObjectForPathgraphUpdate(obj);
 				
 				// EntityAI cast stuff
 				EntityAI ent;
@@ -202,6 +193,9 @@ modded class MissionServer
 				}
 			}
 		}
+
+		// update pathgraph for all spawned objects
+		GetGame().GetWorld().ProcessMarkedObjectsForPathgraphUpdate();
 		
 		EditorLoaderLog(string.Format("%1 total objects created", created_objects));
 		EditorLoaderLog(string.Format("%1 total objects deleted", deleted_objects));
@@ -329,12 +323,5 @@ modded class MissionServer
 	static void EditorLoaderLog(string msg)
 	{
 		PrintFormat("[EditorLoader] %1", msg);
-	}
-
-	bool IsValidBuilding(string type)
-	{
-		// check if building is not persistent
-		string destr = GetGame().ConfigGetTextOut("CfgVehicles " + type + " destrType");
-		return (destr == "DestructNo" || destr == "DestructBuilding");
 	}
 }
