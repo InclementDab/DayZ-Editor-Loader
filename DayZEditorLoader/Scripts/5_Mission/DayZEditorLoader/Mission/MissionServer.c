@@ -1,7 +1,8 @@
+// Legacy issues resolved
+typedef MissionServer EditorLoaderModule;
+
 modded class MissionServer
-{
-	static const int RPC_REMOTE_DELETE_BUILDING = -34293538;
-	
+{	
 	static const string MAP_GROUP_POS_FILE = "$mission:\\mapgrouppos.xml";
 	static const string ROOT_DIRECTORY = "$mission:\\EditorFiles";
 	static bool ExportLootData = false;	
@@ -241,7 +242,7 @@ modded class MissionServer
 				if (deleted_packets.Count() >= 100) {
 					ScriptRPC rpc = new ScriptRPC();
 					rpc.Write(deleted_packets);
-					rpc.Send(null, RPC_REMOTE_DELETE_BUILDING, true, identity);
+					rpc.Send(null, DayZGame.RPC_REMOTE_DELETE_BUILDING, true, identity);
 					
 					deleted_packets.Clear();
 				}				
@@ -251,7 +252,7 @@ modded class MissionServer
 		if (deleted_packets.Count() > 0) {
 			ScriptRPC rpc_final = new ScriptRPC();
 			rpc_final.Write(deleted_packets);
-			rpc_final.Send(null, RPC_REMOTE_DELETE_BUILDING, true, identity);
+			rpc_final.Send(null, DayZGame.RPC_REMOTE_DELETE_BUILDING, true, identity);
 		}
 		
 		EditorLoaderLog("Sent Deleted objects in " + ((GetGame().GetTime() - time) / 1000) + "s");	
