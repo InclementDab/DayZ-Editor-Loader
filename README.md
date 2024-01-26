@@ -1,13 +1,91 @@
-# DayZ Editor Loader
-This is a loader mod for edits created in the [DayZ Editor](https://github.com/InclementDab/DayZ-Editor)
+# DayZ-Mod-Template
 
-Instructions:
-1) Load the mod on your server, this will generated a folder called "EditorFiles" in your Server Profile directory
-2) Drag your .dze files into this folder (you can find these in your profiles/Editor folder of your client when saving files)
-3) Run server!
+A Comprehensive Mod Template for DayZ. Optimized with Workbench for Advanced Scripting and pboProject for Efficient Building.
+This is my personal template, that I ues for all projects
 
-### Workshop Links:
+# Repository Setup
 
-[DayZ Editor](https://steamcommunity.com/sharedfiles/filedetails/?id=2250764298)
+Follow these steps to clone the DayZ Mod Template, set up your project environment, and initialize your own Git repository.
 
-[DayZ Editor Loader](https://steamcommunity.com/sharedfiles/filedetails/?id=2276010135)
+#### Creating Your Project from a Template
+
+1. **Use the Template Repository**:
+   - Navigate to the DayZ Mod Template repository on GitHub: `https://github.com/InclementDab/DayZ-Mod-Template`
+   - Click on the "Use this template" button near the top of the repository page.
+
+2. **Set Up Your New Repository**:
+   - Enter a name for your new repository, like `DayZ-Mod-Name`.
+   - Optionally, provide a description.
+   - Choose the repository visibility (public or private).
+   - Click on "Create repository from template" to generate your new repository.
+
+#### Cloning Your New Repository
+
+3. **Clone Your New Repository**:
+   - Once your repository is created, clone it to your local machine:
+     ```bash
+     git clone https://github.com/yourusername/DayZ-Mod-Name.git
+     ```
+   - Replace `yourusername` with your actual GitHub username.
+
+4. **Navigate to the Cloned Directory**:
+   - Change your directory to the one you just cloned:
+     ```bash
+     cd DayZ-Mod-Name
+     ```
+
+5. **Run the Installation Script**:
+   - If the template includes an installation script (`Install.ps1`), run it:
+     ```bash
+     ./Install.ps1
+     ```
+
+# Workbench
+
+#### Mounting to the Workdrive
+
+1. **Run the Batch File to Mount**:
+   - Navigate to the `SetupWorkdrive.bat` file in your mod directory.
+     ```
+     ../DayZ-Mod-Name/SetupWorkdrive.bat 
+     ```
+   - Execute this batch file. It will automatically mount all folders containing a 'Workbench' folder in your repository directory to your Workdrive.
+
+#### Opening the Project in Workbench
+
+1. **Access the Project Directory**:
+   - Go to the mod's project directory:
+     ```
+     ../DayZ-Mod-Name/ModName/Workbench
+     ```
+   - Here, you will find the `dayz.gproj` file.
+
+2. **Open the Project File**:
+   - Double-click on `dayz.gproj`.
+   - If prompted, choose to open it with Workbench. You can find Workbench in `steamapps/common/DayZ Tools/Bin/Workbench`.
+
+#### Configuring Source Data Directory in Workbench
+
+This step only needs to be completed one time, unless you change your DayZ install directory.
+
+1. **Set the Source Data Directory**:
+   - In Workbench, navigate to `Workbench -> Options`.
+   - Set "Source Data Directory" to your DayZ installation path, such as `C:/Program Files (x86)/Steam/steamapps/common/DayZ Exp`.
+
+2. **Handle the Restart Prompt**:
+   - Upon setting the directory, a prompt to restart Workbench will appear. Select 'No' to decline this automatic restart.
+
+3. **Manually Restart Workbench**:
+   - Close the Resource Browser to ensure all settings are applied.
+   - Exit and then reopen Workbench.
+   - Reopen the `dayz.gproj` file.
+
+
+#### With [Dabs Framework](https://github.com/InclementDab/DayZ-Dabs-Framework) on your machine, your project will automatically have plugins built-in. To use these plugins, follow `Using the Workbench Plugins` in the wiki.
+
+
+## License
+
+Your tool is licensed under [MIT License](LICENSE.md).
+
+For any additional questions or feedback, please raise an issue in this repository or contact [Dab](mailto:inclementdab@gmail.com).
