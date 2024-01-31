@@ -7,7 +7,7 @@ modded class MissionServer
 	static const string MAPGROUPPOS_FILE = "$mission:\\mapgrouppos.xml";
 	static const string ROOT_DIRECTORY = "$mission:\\EditorFiles";
 	
-	static bool ForceNoLoot = false;
+	static bool ExportProxyData = false;
 	
 	protected ref array<ref EditorSaveData> m_WorldDataImports = {};
 	
@@ -190,7 +190,7 @@ modded class MissionServer
 	{
 		super.OnMissionLoaded();
 		
-		if (!GetCEApi() || ForceNoLoot) {
+		if (!GetCEApi() || !ExportProxyData) {
 			return;
 		}
 		
