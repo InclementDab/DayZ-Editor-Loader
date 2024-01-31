@@ -4,7 +4,7 @@ class CfgPatches
 	class EditorLoader_Scripts
 	{
         requiredVersion = 0.1;
-		requiredAddons[] = {"DZ_Scripts"};
+		requiredAddons[] = {"DF_Scripts"};
 	};
 };
 
@@ -12,7 +12,7 @@ class CfgMods
 {
 	class EditorLoader
 	{
-		name = "DayZ-Mod-Template";
+		name = "Editor Loader";
 		dir = "EditorLoader";
 		creditsJson = "EditorLoader/Scripts/Credits.json";
 		inputs = "EditorLoader/Scripts/Inputs.xml";
@@ -20,21 +20,10 @@ class CfgMods
 
 		dependencies[] =
 		{
-			"Game", "World", "Mission"
+			"Game", "Mission"
 		};
 		class defs
 		{
-			class imageSets
-			{
-				files[]= {};
-			};
-			class engineScriptModule
-			{
-				files[] =
-				{
-					"EditorLoader/scripts/1_core"
-				};
-			};
 
 			class gameScriptModule
 			{
@@ -43,14 +32,6 @@ class CfgMods
 					"EditorLoader/scripts/3_Game"
 				};
 			};
-			class worldScriptModule
-			{
-				files[] = 
-				{
-					"EditorLoader/scripts/4_World"
-				};
-			};
-
 			class missionScriptModule 
 			{
 				files[] = 
