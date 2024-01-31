@@ -198,12 +198,12 @@ modded class MissionServer
 		// update pathgraph for all spawned objects
 		GetGame().GetWorld().ProcessMarkedObjectsForPathgraphUpdate();
 		
-		EditorLoaderLog(string.Format("%1 total objects created", created_objects));
-		EditorLoaderLog(string.Format("%1 total objects deleted", deleted_objects));
-		EditorLoaderLog("Deleted & Created all objects in " + ((GetGame().GetTime() - time) / 1000) + "s");	
+		Print(string.Format("%1 total objects created", created_objects));
+		Print(string.Format("%1 total objects deleted", deleted_objects));
+		Print("Deleted & Created all objects in " + ((GetGame().GetTime() - time) / 1000) + "s");	
 			
 		// Runs thread that watches for EditorLoaderModule.ExportLootData = true;
-		thread ExportLootData();
+		GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(ExportLootData, 5000, true);
 	}
 	
 	override void OnMissionFinish()
@@ -227,58 +227,24 @@ modded class MissionServer
 		
 		SendClientData(identity);
 	}
-	
-	private void SendClientData(PlayerIdentity identity)
+						
+	protected void ExportLootData()
 	{
-		float time = GetGame().GetTime();
-		DeletedBuildingsPacket deleted_packets();
-		
-		// Delete buildings on client side
-		for (int i = 0; i < m_WorldDataImports.Count(); i++) {
-			for (int j = 0; j < m_WorldDataImports[i].EditorHiddenObjects.Count(); j++) {
-				deleted_packets.Insert(m_WorldDataImports[i].EditorHiddenObjects[j]);
-								
-				// Send in packages of 100
-				if (deleted_packets.Count() >= 100) {
-					ScriptRPC rpc = new ScriptRPC();
-					rpc.Write(deleted_packets);
-					rpc.Send(null, DayZGame.RPC_REMOTE_DELETE_BUILDING, true, identity);
-					
-					deleted_packets.Clear();
-				}				
-			}
-		}
-		
-		if (deleted_packets.Count() > 0) {
-			ScriptRPC rpc_final = new ScriptRPC();
-			rpc_final.Write(deleted_packets);
-			rpc_final.Send(null, DayZGame.RPC_REMOTE_DELETE_BUILDING, true, identity);
-		}
-		
-		EditorLoaderLog("Sent Deleted objects in " + ((GetGame().GetTime() - time) / 1000) + "s");	
-	}
-					
-	private void ExportLootData()
-	{
-		while (true) {
-			if (GetCEApi() && ExportLootData) {
-				if (ExportLootExperimental) {
-					// experimental export method
-					ExportMapGroupPosManual();
-					return;
-				}
-				
-				GetCEApi().ExportProxyData(vector.Zero, 100000);
+		if (GetCEApi() && ExportLootData) {
+			if (ExportLootExperimental) {
+				// experimental export method
+				ExportMapGroupPosManual();
 				return;
 			}
 			
-			Sleep(1000);
+			GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).Remove(ExportLootData, 5000, true);
+			GetCEApi().ExportProxyData(vector.Zero, 100000);
 		}
 	}
 	
-	private void ExportMapGroupPosManual()
+	protected void ExportMapGroupPosManual()
 	{
-		PrintToRPT("Editor Loader forced loot export running...");
+		Print("Exporting Manual Group Pos Data");
 		if (FileExist(MAP_GROUP_POS_FILE) && !DeleteFile(MAP_GROUP_POS_FILE)) {
 			return;
 		}
@@ -319,10 +285,5 @@ modded class MissionServer
 		FPrintln(handle, "</map>");
 		
 		CloseFile(handle);
-	}
-		
-	static void EditorLoaderLog(string msg)
-	{
-		PrintFormat("[EditorLoader] %1", msg);
 	}
 }
