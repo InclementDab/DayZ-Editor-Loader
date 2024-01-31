@@ -3,17 +3,13 @@ typedef MissionServer EditorLoaderModule;
 
 modded class MissionServer
 {	
-	static const string MAP_GROUP_POS_FILE = "$mission:\\mapgrouppos.xml";
+	static const string MAPGROUPPOS_STORAGE_EXPORT = "$storage:export\\mapgrouppos.xml";
+	static const string MAPGROUPPOS_FILE = "$mission:\\mapgrouppos.xml";
 	static const string ROOT_DIRECTORY = "$mission:\\EditorFiles";
-	static bool ExportLootData = false;	
-	static bool ExportLootExperimental = false;
+	
+	static bool ForceNoLoot = false;
 	
 	protected ref array<ref EditorSaveData> m_WorldDataImports = {};
-		
-	void ~MissionServer()
-	{
-		delete m_WorldDataImports;
-	}
 	
 	void LoadCustomBuilds(inout array<string> custom_builds) {} // making this into a semi-colon deletes the array
 	
@@ -102,29 +98,19 @@ modded class MissionServer
 	override void OnMissionStart()
 	{		
 		super.OnMissionStart();
-		
-		if (!MakeDirectory(ROOT_DIRECTORY)) {
-			EditorLoaderLog("Could not create EditorFiles directory. Exiting...");
-			return;
-		}
-		
-		EditorSaveData data_import;
-		
+		MakeDirectory(ROOT_DIRECTORY);
+				
 		TStringArray files = {};
 		LoadFolder(ROOT_DIRECTORY, files);
 		
 		// append all packed builds to this
 		LoadCustomBuilds(files);
-		
 		if (files.Count() == 0) {
-			EditorLoaderLog("No files found, exiting");
 			return;
 		}
 		
-		float time = GetGame().GetTime();
-		foreach (string file: files) {
-			EditorLoaderLog("File found: " + file);
-			
+		DateTime date = DateTime.Now();
+		foreach (string file: files) {			
 			EditorSaveData save_data;
 			if (EditorSaveData.IsBinnedFile(file)) {
 				save_data = LoadBinFile(file);
@@ -133,27 +119,25 @@ modded class MissionServer
 			}
 			
 			if (!save_data) {
-				EditorLoaderLog("Failed to load " + file);
 				continue;
 			}
 			
 			m_WorldDataImports.Insert(save_data);
 		}
 		
-		EditorLoaderLog("Loaded files in " + ((GetGame().GetTime() - time) / 1000) + "s");	
 		int created_objects, deleted_objects;
 		// Create and Delete buildings on Server Side
 		foreach (EditorSaveData editor_data: m_WorldDataImports) {
 			created_objects += editor_data.EditorObjects.Count();
 			deleted_objects += editor_data.EditorHiddenObjects.Count();
 			
-			foreach (EditorHiddenObjectData deleted_object: editor_data.EditorHiddenObjects) {				
+			foreach (EditorDeletedObjectData deleted_object: editor_data.EditorHiddenObjects) {				
 				Object deleted_obj = deleted_object.FindObject();
 				if (!deleted_obj) {
 					continue;
 				}
 				
-				ObjectRemover.RemoveObject(deleted_obj);
+				GetDayZGame().GetSuppressedObjectManager().Suppress(deleted_obj);
 			}
 			
 			foreach (EditorObjectData editor_object: editor_data.EditorObjects) {	
@@ -164,7 +148,7 @@ modded class MissionServer
 
 				// ensure the object exists in a protected/public scope, or exists
 				if (GetGame().ConfigGetInt("CfgVehicles " + editor_object.Type + " scope") < 1) {
-					EditorLoaderLog("Object '" + editor_object.Type + "' is either private scope or does not exist");
+					Print("Object '" + editor_object.Type + "' is either private scope or does not exist");
 					continue;
 				}
 				
@@ -198,92 +182,39 @@ modded class MissionServer
 		// update pathgraph for all spawned objects
 		GetGame().GetWorld().ProcessMarkedObjectsForPathgraphUpdate();
 		
-		Print(string.Format("%1 total objects created", created_objects));
-		Print(string.Format("%1 total objects deleted", deleted_objects));
-		Print("Deleted & Created all objects in " + ((GetGame().GetTime() - time) / 1000) + "s");	
-			
-		// Runs thread that watches for EditorLoaderModule.ExportLootData = true;
-		GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(ExportLootData, 5000, true);
+		TimeSpan total_time = DateTime.Now() - date;
+		PrintFormat("%1 objects created, %2 deleted (completed in %1)", created_objects, deleted_objects, total_time.Format());
 	}
 	
-	override void OnMissionFinish()
+	override void OnMissionLoaded()
 	{
-		super.OnMissionFinish();
+		super.OnMissionLoaded();
 		
-		ObjectRemover.RestoreAllMapObjects();	
-	}
-	
-	string GetFormattedWorldName()
-	{
-		string world_name;
-		GetGame().GetWorldName(world_name);
-		world_name.ToLower();
-		return world_name;
-	}
-			
-	override void OnPlayerJoined(PlayerBase player, PlayerIdentity identity)
-	{
-		super.OnPlayerJoined(player, identity);
-		
-		SendClientData(identity);
-	}
-						
-	protected void ExportLootData()
-	{
-		if (GetCEApi() && ExportLootData) {
-			if (ExportLootExperimental) {
-				// experimental export method
-				ExportMapGroupPosManual();
-				return;
-			}
-			
-			GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).Remove(ExportLootData, 5000, true);
-			GetCEApi().ExportProxyData(vector.Zero, 100000);
-		}
-	}
-	
-	protected void ExportMapGroupPosManual()
-	{
-		Print("Exporting Manual Group Pos Data");
-		if (FileExist(MAP_GROUP_POS_FILE) && !DeleteFile(MAP_GROUP_POS_FILE)) {
+		if (!GetCEApi() || ForceNoLoot) {
 			return;
 		}
 		
-		FileHandle handle = OpenFile(MAP_GROUP_POS_FILE, FileMode.WRITE);
-		if (!handle) {
-			Error(string.Format("File in use %1", MAP_GROUP_POS_FILE));
+		if (!DeleteFile(MAPGROUPPOS_FILE)) {
+			Error(string.Format("Failed to delete %1", MAPGROUPPOS_FILE));
 			return;
 		}
 		
-		FPrintln(handle, "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>");
-		FPrintln(handle, "<map>");
+		PrintFormat("Exporting Loot to %1", MAPGROUPPOS_STORAGE_EXPORT);
+		DateTime date = DateTime.Now();
+		GetCEApi().ExportProxyData();
 		
-		array<Object> objects = {};
-
-		GetGame().GetObjectsAtPosition3D(vector.Zero, 100000, objects, null);		
-		foreach (Object world_object: objects) {
-			if (world_object.GetType() == string.Empty) {
-				continue;
-			}
-			
-			if (!world_object.IsInherited(House)) {
-				continue;
-			}
-			
-			vector orientation = world_object.GetOrientation();
-			vector rpy = Vector(orientation[2], orientation[1], orientation[0]);
-			float a;
-			if (rpy[2] <= -90) {
-				a = -rpy[2] - 270;
-			} else {
-				a = 90 - rpy[2];
-			}
-			
-			FPrintln(handle, string.Format("	<group name=\"%1\" pos=\"%2\" rpy=\"%3\" a=\"%4\"/>", world_object.GetType(), world_object.GetPosition().ToString(false), rpy.ToString(false), a));		 //a=\"%4\"
+		PrintFormat("Copying file %1 to %2...", MAPGROUPPOS_STORAGE_EXPORT, MAPGROUPPOS_FILE);
+		if (!CopyFile(MAPGROUPPOS_STORAGE_EXPORT, MAPGROUPPOS_FILE)) {
+			Error(string.Format("Failed to copy %1 to %2", MAPGROUPPOS_FILE, MAPGROUPPOS_STORAGE_EXPORT));
+			return;
 		}
 		
-		FPrintln(handle, "</map>");
+		if (!DeleteFile(MAPGROUPPOS_STORAGE_EXPORT)) {
+			Error(string.Format("Failed to delete %1", MAPGROUPPOS_STORAGE_EXPORT));
+			return;
+		}
 		
-		CloseFile(handle);
+		TimeSpan total_time = DateTime.Now() - date;
+		PrintFormat("Export complete (took %1)", total_time.Format());
 	}
 }
