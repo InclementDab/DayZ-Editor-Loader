@@ -142,18 +142,19 @@ modded class MissionServer
 			
 			foreach (EditorObjectData editor_object: editor_data.EditorObjects) {	
 				// Do not spawn, it is Editor Only				
-				if (editor_object.EditorOnly) {
+				if (editor_object.EditorOnly || editor_object.Type == string.Empty) {
 					continue;
 				}
 
 				// ensure the object exists in a protected/public scope, or exists
-				if (GetGame().ConfigGetInt("CfgVehicles " + editor_object.Type + " scope") < 1) {
-					Print("Object '" + editor_object.Type + "' is either private scope or does not exist");
+				if (GetGame().ConfigGetInt(string.Format("CfgVehicles %1 scope", editor_object.Type)) < 1) {
+					PrintFormat("Object '%1' is scope 0", editor_object.Type);
 					continue;
 				}
 				
 				Object obj = GetGame().CreateObjectEx(editor_object.Type, editor_object.Position, ECE_SETUP | ECE_CREATEPHYSICS | ECE_NOLIFETIME | ECE_DYNAMIC_PERSISTENCY);
 				if (!obj) {
+					PrintFormat("Failed to create object %1", editor_object.Type);
 					continue;
 				}
 								
@@ -172,8 +173,8 @@ modded class MissionServer
 				}
 				
 				// Update netlights to load the proper data
-				SerializedBuilding networked_object;
-				if (SerializedBuilding.CastTo(networked_object, obj)) {
+				SerializedBuilding networked_object = SerializedBuilding.Cast(obj);
+				if (networked_object) {
 					networked_object.Read(editor_object.Parameters);
 				}
 			}
@@ -186,11 +187,11 @@ modded class MissionServer
 		PrintFormat("%1 objects created, %2 deleted (completed in %1)", created_objects, deleted_objects, total_time.Format());
 	}
 	
-	override void OnMissionLoaded()
+	override void AfterHiveInit(Hive hive)
 	{
-		super.OnMissionLoaded();
+		super.AfterHiveInit(hive);
 		
-		if (!GetCEApi() || !ExportProxyData) {
+		if (!hive || !ExportProxyData) {
 			return;
 		}
 		
