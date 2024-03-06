@@ -46,7 +46,25 @@ modded class MissionServer
 		
 		CloseFindFile(file_handle);
 	}
-	
+
+	void LoadDirectory(string directory, inout array<string> files)
+	{
+		string name;
+		FileAttr attr;
+		FindFileHandle handle = FindFile(string.Format("%1/*", directory), name, attr, FindFileFlags.ALL);
+
+		if (name != string.Empty && name.Contains(".dze"))
+			files.Insert(directory + "/" + name);
+
+		while (FindNextFile(handle, name, attr))
+		{
+			if (name != string.Empty && name.Contains(".dze"))
+				files.Insert(directory + "/" + name);
+		}
+
+		CloseFindFile(handle);
+	}
+
 	EditorSaveData LoadBinFile(string file)
 	{				
 		FileSerializer serializer = new FileSerializer();
@@ -101,7 +119,12 @@ modded class MissionServer
 		MakeDirectory(ROOT_DIRECTORY);
 				
 		TStringArray files = {};
-		LoadFolder(ROOT_DIRECTORY, files);
+		#ifdef PLATFORM_LINUX
+			LoadDirectory(ROOT_DIRECTORY, files);
+		#else
+			LoadFolder(ROOT_DIRECTORY, files);
+		#endif
+
 		
 		// append all packed builds to this
 		LoadCustomBuilds(files);
