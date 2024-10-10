@@ -12,41 +12,7 @@ modded class MissionServer
 	protected ref array<ref EditorSaveData> m_WorldDataImports = {};
 	
 	void LoadCustomBuilds(inout array<string> custom_builds) {} // making this into a semi-colon deletes the array
-	
-	void LoadFolder(string folder, inout array<string> files)
-	{
-		string folder_name, file_name;
-		FileAttr file_attr;
 		
-		// scan for folders
-		FindFileHandle folder_handle = FindFile(string.Format("%1\\*", folder), folder_name, file_attr, FindFileFlags.DIRECTORIES);
-		if (folder_name != string.Empty && file_attr == FileAttr.DIRECTORY) {
-			LoadFolder(folder + "\\" + folder_name + "\\", files);
-		}
-		
-		while (FindNextFile(folder_handle, folder_name, file_attr)) {
-			if (folder_name != string.Empty && file_attr == FileAttr.DIRECTORY) {
-				LoadFolder(folder + "\\" + folder_name + "\\", files);
-			}
-		}
-		
-		CloseFindFile(folder_handle);
-		
-		// scan for dze files
-		FindFileHandle file_handle = FindFile(string.Format("%1\\*.dze", folder), file_name, file_attr, FindFileFlags.ALL);
-		if (file_name != string.Empty) {
-			files.Insert(folder + "\\" + file_name);
-		}
-		
-		while (FindNextFile(file_handle, file_name, file_attr)) {
-			if (file_name != string.Empty) {
-				files.Insert(folder + "\\" + file_name);
-			}
-		}
-		
-		CloseFindFile(file_handle);
-	}
-	
 	EditorSaveData LoadBinFile(string file)
 	{				
 		FileSerializer serializer = new FileSerializer();
@@ -99,18 +65,18 @@ modded class MissionServer
 	{		
 		super.OnMissionStart();
 		MakeDirectory(ROOT_DIRECTORY);
-				
-		TStringArray files = {};
-		LoadFolder(ROOT_DIRECTORY, files);
+		
+		array<string> dze_files = Directory.EnumerateFiles(ROOT_DIRECTORY, "*.dze", 5);
 		
 		// append all packed builds to this
-		LoadCustomBuilds(files);
-		if (files.Count() == 0) {
+		LoadCustomBuilds(dze_files);
+		
+		if (dze_files.Count() == 0) {
 			return;
 		}
 		
 		DateTime date = DateTime.Now();
-		foreach (string file: files) {			
+		foreach (string file: dze_files) {			
 			EditorSaveData save_data;
 			if (EditorSaveData.IsBinnedFile(file)) {
 				save_data = LoadBinFile(file);
@@ -184,14 +150,14 @@ modded class MissionServer
 		GetGame().GetWorld().ProcessMarkedObjectsForPathgraphUpdate();
 		
 		TimeSpan total_time = DateTime.Now() - date;
-		PrintFormat("%1 objects created, %2 deleted (completed in %1)", created_objects, deleted_objects, total_time.Format());
+		PrintFormat("%1 objects created, %2 deleted (completed in %1s)", created_objects, deleted_objects, total_time.Format());
 	}
 	
-	override void AfterHiveInit(Hive hive)
+	override void AfterHiveInit()
 	{
-		super.AfterHiveInit(hive);
+		super.AfterHiveInit();
 		
-		if (!hive || !ExportProxyData) {
+		if (!ExportProxyData) {
 			return;
 		}
 		
