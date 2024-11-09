@@ -112,13 +112,21 @@ modded class MissionServer
 					continue;
 				}
 
-				// ensure the object exists in a protected/public scope, or exists
-				if (GetGame().ConfigGetInt(string.Format("CfgVehicles %1 scope", editor_object.Type)) < 1) {
-					PrintFormat("Object '%1' is scope 0", editor_object.Type);
-					continue;
+				
+				Object obj;
+				string object_typename = editor_object.Type;
+				if (File.WildcardMatch(object_typename, "*.p3d")) {
+					obj = GetGame().CreateStaticObjectUsingP3D(object_typename, editor_object.Position, editor_object.Orientation, editor_object.Scale, false);
+				} else {
+					// ensure the object exists in a protected/public scope, or exists
+					if (GetGame().ConfigGetInt(string.Format("CfgVehicles %1 scope", object_typename)) < 1) {
+						PrintFormat("Object '%1' is scope 0", editor_object.Type);
+						continue;
+					}
+					
+					obj = GetGame().CreateObjectEx(object_typename, editor_object.Position, ECE_SETUP | ECE_CREATEPHYSICS | ECE_NOLIFETIME | ECE_DYNAMIC_PERSISTENCY);
 				}
 				
-				Object obj = GetGame().CreateObjectEx(editor_object.Type, editor_object.Position, ECE_SETUP | ECE_CREATEPHYSICS | ECE_NOLIFETIME | ECE_DYNAMIC_PERSISTENCY);
 				if (!obj) {
 					PrintFormat("Failed to create object %1", editor_object.Type);
 					continue;
@@ -149,8 +157,8 @@ modded class MissionServer
 		// update pathgraph for all spawned objects
 		GetGame().GetWorld().ProcessMarkedObjectsForPathgraphUpdate();
 		
-		TimeSpan total_time = DateTime.Now() - date;
-		PrintFormat("%1 objects created, %2 deleted (completed in %1s)", created_objects, deleted_objects, total_time.Format());
+		float total_time = DateTime.Now() - date;
+		PrintFormat("%1 objects created, %2 deleted (completed in %1s)", created_objects, deleted_objects, total_time / 1000.0);
 	}
 	
 	override void AfterHiveInit()
