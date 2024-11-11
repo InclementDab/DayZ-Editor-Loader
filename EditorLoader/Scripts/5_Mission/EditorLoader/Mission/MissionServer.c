@@ -139,11 +139,10 @@ modded class MissionServer
 
 				Object obj;
 				string object_typename = editor_object.Type;
-				vector offset = GetObjectBoundingCenter(object_typename);
 
 				if (File.WildcardMatch(object_typename, "*.p3d"))
 				{
-					obj = GetGame().CreateStaticObjectUsingP3D(object_typename, editor_object.Position - offset, editor_object.Orientation, editor_object.Scale, false);
+					obj = GetGame().CreateStaticObjectUsingP3D(object_typename, editor_object.Position - GetObjectBoundingCenter(object_typename), editor_object.Orientation, editor_object.Scale, false);
 				}
 				else
 				{
