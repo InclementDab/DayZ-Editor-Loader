@@ -116,19 +116,15 @@ modded class MissionServer
 				Object obj;
 				string object_typename = editor_object.Type;
 				if (File.WildcardMatch(object_typename, "*.p3d")) {
+					object_typename = object_typename.Trim();
+					object_typename.Replace("\/", "\\");
 					obj = GetGame().CreateStaticObjectUsingP3D(object_typename, editor_object.Position, editor_object.Orientation, editor_object.Scale, false);
-				} else {
-					// ensure the object exists in a protected/public scope, or exists
-					if (GetGame().ConfigGetInt(string.Format("CfgVehicles %1 scope", object_typename)) < 1) {
-						PrintFormat("Object '%1' is scope 0", editor_object.Type);
-						continue;
-					}
-					
+				} else {			
 					obj = GetGame().CreateObjectEx(object_typename, editor_object.Position, ECE_SETUP | ECE_CREATEPHYSICS | ECE_NOLIFETIME | ECE_DYNAMIC_PERSISTENCY);
 				}
 				
 				if (!obj) {
-					PrintFormat("Failed to create object %1", editor_object.Type);
+					PrintFormat("Object Creation Failed %1", editor_object.Type);
 					continue;
 				}
 								
