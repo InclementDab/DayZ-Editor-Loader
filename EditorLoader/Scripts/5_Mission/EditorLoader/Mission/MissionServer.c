@@ -8,9 +8,7 @@ modded class MissionServer
 	static const string ROOT_DIRECTORY = "$mission:\\EditorFiles";
 	
 	static bool ExportProxyData = false;
-	
-	protected ref array<ref EditorSaveData> m_WorldDataImports = {};
-	
+		
 	void LoadCustomBuilds(inout array<string> custom_builds) {} // making this into a semi-colon deletes the array
 		
 	EditorSaveData LoadBinFile(string file)
@@ -64,6 +62,9 @@ modded class MissionServer
 	override void OnMissionStart()
 	{		
 		super.OnMissionStart();
+			
+		ScopedFunctionTimer function_timer("EditorLoader::MissionStart");
+		
 		MakeDirectory(ROOT_DIRECTORY);
 		
 		array<string> dze_files = Directory.EnumerateFiles(ROOT_DIRECTORY, "*.dze", 5);
@@ -75,9 +76,12 @@ modded class MissionServer
 			return;
 		}
 		
-		DateTime date = DateTime.Now();
-		foreach (string file: dze_files) {			
-			EditorSaveData save_data;
+		function_timer.Dump(string.Format("Begin Loading %1 file(s)", dze_files.Count()));
+		
+		int created_objects, deleted_objects;
+		// Create and Delete buildings on Server Side
+		foreach (string file: dze_files) {	
+			EditorSaveData save_data = null;
 			if (EditorSaveData.IsBinnedFile(file)) {
 				save_data = LoadBinFile(file);
 			} else {
@@ -88,30 +92,26 @@ modded class MissionServer
 				continue;
 			}
 			
-			m_WorldDataImports.Insert(save_data);
-		}
-		
-		int created_objects, deleted_objects;
-		// Create and Delete buildings on Server Side
-		foreach (EditorSaveData editor_data: m_WorldDataImports) {
-			created_objects += editor_data.EditorObjects.Count();
-			deleted_objects += editor_data.EditorHiddenObjects.Count();
+			created_objects += save_data.EditorObjects.Count();
+			deleted_objects += save_data.EditorHiddenObjects.Count();
 			
-			foreach (EditorDeletedObjectData deleted_object: editor_data.EditorHiddenObjects) {				
+			array<Object> deleted_objects_list = {};
+			foreach (EditorDeletedObjectData deleted_object: save_data.EditorHiddenObjects) {				
 				Object deleted_obj = deleted_object.FindObject();
-				if (!deleted_obj) {
-					continue;
+				if (deleted_obj) {
+					deleted_objects_list.Insert(deleted_obj);
 				}
-				
-				GetDayZGame().GetSuppressedObjectManager().Suppress(deleted_obj);
 			}
 			
-			foreach (EditorObjectData editor_object: editor_data.EditorObjects) {	
+			GetDayZGame().GetSuppressedObjectManager().SuppressMany(deleted_objects_list, false);
+			
+			function_timer.Dump(string.Format("(%1) Deleted %2 Objects", file, deleted_objects_list.Count()));
+			
+			foreach (EditorObjectData editor_object: save_data.EditorObjects) {			
 				// Do not spawn, it is Editor Only				
 				if (editor_object.EditorOnly || editor_object.Type == string.Empty) {
 					continue;
 				}
-
 				
 				Object obj;
 				string object_typename = editor_object.Type;
@@ -124,7 +124,7 @@ modded class MissionServer
 				}
 				
 				if (!obj) {
-					PrintFormat("Object Creation Failed %1", editor_object.Type);
+					PrintFormat("Object Create Failed %1", editor_object.Type);
 					continue;
 				}
 								
@@ -148,13 +148,14 @@ modded class MissionServer
 					networked_object.Read(editor_object.Parameters);
 				}
 			}
+			
+			function_timer.Dump(string.Format("(%1) Created %2 Objects", file, save_data.EditorObjects.Count()));
 		}
-
+		
 		// update pathgraph for all spawned objects
 		GetGame().GetWorld().ProcessMarkedObjectsForPathgraphUpdate();
 		
-		float total_time = DateTime.Now() - date;
-		PrintFormat("%1 objects created, %2 deleted (completed in %1s)", created_objects, deleted_objects, total_time / 1000.0);
+		function_timer.Dump(string.Format("Pathgraph Complete"));
 	}
 	
 	override void AfterHiveInit()
